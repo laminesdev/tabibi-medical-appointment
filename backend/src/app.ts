@@ -1,8 +1,9 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { errorHandler } from './middleware/error.middleware';
 
 // Load environment variables
 dotenv.config();
@@ -47,26 +48,15 @@ app.get('/health', (_req: Request, res: Response) => {
 // app.use('/api/doctors', doctorRoutes);
 // app.use('/api/appointments', appointmentRoutes);
 
-// 404 handler
-app.use('*', (req: Request, res: Response) => {
+// 404 handler - REMOVE THE '*' PARAMETER
+app.use((req: Request, res: Response) => {
   res.status(404).json({
     status: 'error',
     message: `Cannot ${req.method} ${req.originalUrl}`
   });
 });
 
-// Error handling middleware
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack);
-  
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-  
-  res.status(statusCode).json({
-    status: 'error',
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// Error handling middleware (MUST BE LAST)
+app.use(errorHandler);
 
 export default app;
