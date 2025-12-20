@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  RESCHEDULED
+  REJECTED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  firstName   String
+  lastName    String
+  phone       String
+  gender      Gender
+  dateOfBirth DateTime?
+  role        Role      @default(PATIENT)
+  isVerified  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+
+  // Relations
+  patient       Patient?
+  doctor        Doctor?
+  admin         Admin?
+  notifications Notification[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Patient {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicalHistory String?
+
+  // Relations
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Doctor {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty       String
+  location        String
+  bio             String?
+  consultationFee Float?
+  experienceYears Int?
+  education       String?
+  rating          Float?  @default(0)
+  totalReviews    Int?    @default(0)
+
+  // Relations
+  schedule     Schedule?
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([specialty])
+  @@index([location])
+  @@index([rating])
+}
+
+model Schedule {
+  id               String  @id @default(cuid())
+  doctorId         String  @unique
+  doctor           Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  monday           String? // JSON format: {"start": "09:00", "end": "17:00", "breaks": [{"start": "12:00", "end": "13:00"}]}
+  tuesday          String?
+  wednesday        String?
+  thursday         String?
+  friday           String?
+  saturday         String?
+  sunday           String?
+  timeSlotDuration Int     @default(30) // minutes per appointment
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  patientId String
+  doctorId  String
+  date      DateTime
+  timeSlot  String // e.g., "10:00-10:30"
+  status    AppointmentStatus @default(PENDING)
+  reason    String?
+  notes     String?
+
+  // Relations
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Constraints
+  @@unique([doctorId, date, timeSlot])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@index([date])
+}
+
+model Admin {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String // "APPOINTMENT_REMINDER", "APPOINTMENT_CONFIRMATION", "APPOINTMENT_CANCELLATION"
+  title    String
+  message  String
+  isRead   Boolean @default(false)
+  metadata String? // JSON data like {"appointmentId": "123", "date": "2024-01-15T10:00:00Z"}
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
