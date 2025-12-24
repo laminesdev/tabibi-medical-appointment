@@ -1,6 +1,5 @@
-import { Patient, Appointment } from "@prisma/client"; // Remove PrismaClient
+import { Patient, Prisma } from "@prisma/client";
 import { BaseRepository } from "./base.repository";
-import { PaginationParams } from "./user.repository";
 
 export interface CreatePatientData {
    userId: string;
@@ -9,12 +8,6 @@ export interface CreatePatientData {
 
 export interface UpdatePatientData {
    medicalHistory?: string;
-}
-
-export interface PatientQueryParams extends PaginationParams {
-   userId?: string;
-   withAppointments?: boolean;
-   appointmentStatus?: string;
 }
 
 export class PatientRepository extends BaseRepository {
@@ -27,40 +20,41 @@ export class PatientRepository extends BaseRepository {
       });
    }
 
+   async findById(id: string): Promise<Patient | null> {
+      return this.prisma.patient.findUnique({
+         where: { id },
+         include: {
+            user: {
+               select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
+                  gender: true,
+                  dateOfBirth: true,
+               },
+            },
+         },
+      });
+   }
+
    async findByUserId(userId: string): Promise<Patient | null> {
       return this.prisma.patient.findUnique({
          where: { userId },
          include: {
             user: true,
             appointments: {
+               where: {
+                  date: { gte: new Date() },
+               },
                include: {
                   doctor: {
-                     include: {
-                        user: true,
-                        schedule: true,
-                     },
+                     include: { user: true },
                   },
                },
-               orderBy: { date: "desc" },
+               orderBy: { date: "asc" },
                take: 10,
-            },
-         },
-      });
-   }
-
-   async findById(id: string): Promise<Patient | null> {
-      return this.prisma.patient.findUnique({
-         where: { id },
-         include: {
-            user: true,
-            appointments: {
-               include: {
-                  doctor: {
-                     include: {
-                        user: true,
-                     },
-                  },
-               },
             },
          },
       });
@@ -73,85 +67,91 @@ export class PatientRepository extends BaseRepository {
       });
    }
 
-   async findAll(params?: PatientQueryParams): Promise<Patient[]> {
-      const {
-         page = 1,
-         limit = 10,
-         userId,
-         withAppointments = false,
-      } = params || {};
-      const skip = (page - 1) * limit;
+   async findAll(params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+   }): Promise<Patient[]> {
+      const { page = 1, limit = 10, search } = params || {};
+      const { skip, take } = this.getPaginationParams(page, limit);
 
-      const where: any = {};
-      if (userId) where.userId = userId;
+      const where: Prisma.PatientWhereInput = {};
 
-      const include: any = {
-         user: true,
-      };
-
-      if (withAppointments) {
-         include.appointments = {
-            include: {
-               doctor: {
-                  include: { user: true },
-               },
-            },
+      if (search) {
+         where.user = {
+            OR: [
+               { firstName: { contains: search, mode: "insensitive" } },
+               { lastName: { contains: search, mode: "insensitive" } },
+               { email: { contains: search, mode: "insensitive" } },
+            ],
          };
       }
 
       return this.prisma.patient.findMany({
          where,
-         include,
-         skip,
-         take: limit,
-         orderBy: { createdAt: "desc" },
-      });
-   }
-
-   async getAppointments(
-      patientId: string,
-      params?: PaginationParams
-   ): Promise<Appointment[]> {
-      const { page = 1, limit = 10 } = params || {};
-      const skip = (page - 1) * limit;
-
-      return this.prisma.appointment.findMany({
-         where: { patientId },
          include: {
-            doctor: {
-               include: {
-                  user: true,
-                  schedule: true,
+            user: {
+               select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
                },
             },
          },
          skip,
-         take: limit,
-         orderBy: { date: "desc" },
-      });
-   }
-
-   async countAppointments(
-      patientId: string,
-      status?: string
-   ): Promise<number> {
-      const where: any = { patientId };
-      if (status) where.status = status;
-
-      return this.prisma.appointment.count({ where });
-   }
-
-   async count(): Promise<number> {
-      return this.prisma.patient.count();
-   }
-
-   async getRecentPatients(limit: number = 10): Promise<Patient[]> {
-      return this.prisma.patient.findMany({
-         include: {
-            user: true,
-         },
+         take,
          orderBy: { createdAt: "desc" },
-         take: limit,
       });
+   }
+
+   async count(search?: string): Promise<number> {
+      const where: Prisma.PatientWhereInput = {};
+
+      if (search) {
+         where.user = {
+            OR: [
+               { firstName: { contains: search, mode: "insensitive" } },
+               { lastName: { contains: search, mode: "insensitive" } },
+               { email: { contains: search, mode: "insensitive" } },
+            ],
+         };
+      }
+
+      return this.prisma.patient.count({ where });
+   }
+
+   async getStats(patientId: string): Promise<{
+      totalAppointments: number;
+      upcomingAppointments: number;
+      completedAppointments: number;
+      cancelledAppointments: number;
+   }> {
+      const [total, upcoming, completed, cancelled] = await Promise.all([
+         this.prisma.appointment.count({
+            where: { patientId },
+         }),
+         this.prisma.appointment.count({
+            where: {
+               patientId,
+               date: { gte: new Date() },
+               status: { in: ["PENDING", "CONFIRMED"] },
+            },
+         }),
+         this.prisma.appointment.count({
+            where: { patientId, status: "COMPLETED" },
+         }),
+         this.prisma.appointment.count({
+            where: { patientId, status: "CANCELLED" },
+         }),
+      ]);
+
+      return {
+         totalAppointments: total,
+         upcomingAppointments: upcoming,
+         completedAppointments: completed,
+         cancelledAppointments: cancelled,
+      };
    }
 }

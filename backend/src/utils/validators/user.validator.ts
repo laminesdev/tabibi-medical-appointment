@@ -1,4 +1,3 @@
-// User profile updates, password changes, etc.
 import { z } from "zod";
 
 export const updateProfileSchema = z.object({

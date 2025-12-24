@@ -1,0 +1,21 @@
+{
+  "name": "tabibi-frontend-test",
+  "version": "1.0.0",
+  "description": "Test suite for Tabibi Medical Appointment System API",
+  "main": "test-api.js",
+  "scripts": {
+    "test": "node test-api.js"
+  },
+  "keywords": [
+    "test",
+    "api",
+    "medical",
+    "appointment"
+  ],
+  "author": "Tabibi Development Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2"
+  }
+}

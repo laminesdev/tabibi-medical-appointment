@@ -1,4 +1,3 @@
-// Doctor schedule validation
 import { z } from "zod";
 
 export const timeRangeSchema = z.object({

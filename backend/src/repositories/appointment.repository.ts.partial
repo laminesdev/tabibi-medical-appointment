@@ -1,0 +1,52 @@
+// Update the imports at the top
+import { Appointment, Prisma, AppointmentStatus } from "@prisma/client";
+
+// Update the findAppointmentsByDoctor method signature:
+async findAppointmentsByDoctor(
+   doctorId: string,
+   params?: {
+      status?: AppointmentStatus;  // FIXED: Use correct type
+      dateFrom?: Date;
+      dateTo?: Date;
+      page?: number;
+      limit?: number;
+   }
+): Promise<Appointment[]> {
+   const { status, dateFrom, dateTo, page = 1, limit = 10 } = params || {};
+   const { skip, take } = this.getPaginationParams(page, limit);
+
+   const where: Prisma.AppointmentWhereInput = {
+      doctorId,
+   };
+
+   if (status) {
+      where.status = status;  // FIXED: No unsafe cast needed
+   }
+
+   // ... rest of the method
+}
+
+// Update findAppointmentsByPatient similarly
+async findAppointmentsByPatient(
+   patientId: string,
+   params?: {
+      status?: AppointmentStatus;  // FIXED: Use correct type
+      dateFrom?: Date;
+      dateTo?: Date;
+      page?: number;
+      limit?: number;
+   }
+): Promise<Appointment[]> {
+   const { status, dateFrom, dateTo, page = 1, limit = 10 } = params || {};
+   const { skip, take } = this.getPaginationParams(page, limit);
+
+   const where: Prisma.AppointmentWhereInput = {
+      patientId,
+   };
+
+   if (status) {
+      where.status = status;  // FIXED: No unsafe cast needed
+   }
+
+   // ... rest of the method
+}

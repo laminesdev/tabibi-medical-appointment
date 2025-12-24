@@ -1,5 +1,6 @@
-import { User, Role, Gender } from "@prisma/client"; // Remove PrismaClient import
+import { User, Role, Gender, Prisma } from "@prisma/client";
 import { BaseRepository } from "./base.repository";
+import { SanitizationUtils } from "../utils/sanitization.utils";
 
 export interface CreateUserData {
    email: string;
@@ -22,27 +23,36 @@ export interface UpdateUserData {
    isVerified?: boolean;
 }
 
-export interface PaginationParams {
+export interface UserQueryParams {
    page?: number;
    limit?: number;
-}
-
-export interface UserQueryParams extends PaginationParams {
    role?: Role;
    search?: string;
    isActive?: boolean;
    isVerified?: boolean;
+   createdAfter?: Date;
 }
 
 export class UserRepository extends BaseRepository {
    async create(data: CreateUserData): Promise<User> {
+      // Define fields with proper typing
+      const fields = {
+         email: "email" as const,
+         firstName: "name" as const,
+         lastName: "name" as const,
+         phone: "phone" as const,
+      };
+
+      // Sanitize input data
+      const sanitizedData = SanitizationUtils.sanitizeObject(data, fields);
+
       return this.prisma.user.create({
          data: {
-            email: data.email.toLowerCase().trim(),
-            password: data.password,
-            firstName: data.firstName.trim(),
-            lastName: data.lastName.trim(),
-            phone: data.phone.trim(),
+            email: sanitizedData.email.toLowerCase().trim(),
+            password: sanitizedData.password,
+            firstName: sanitizedData.firstName.trim(),
+            lastName: sanitizedData.lastName.trim(),
+            phone: sanitizedData.phone.trim(),
             gender: data.gender,
             dateOfBirth: data.dateOfBirth,
             role: data.role || "PATIENT",
@@ -54,25 +64,56 @@ export class UserRepository extends BaseRepository {
 
    async findById(id: string): Promise<User | null> {
       return this.prisma.user.findUnique({
-         where: { id, isActive: true },
+         where: { id },
       });
    }
 
    async findByEmail(email: string): Promise<User | null> {
+      const sanitizedEmail = SanitizationUtils.sanitizeEmail(email);
       return this.prisma.user.findUnique({
-         where: {
-            email: email.toLowerCase().trim(),
-            isActive: true,
+         where: { email: sanitizedEmail.toLowerCase().trim() },
+      });
+   }
+
+   async findByIdWithRelations(id: string): Promise<any> {
+      return this.prisma.user.findUnique({
+         where: { id },
+         include: {
+            patient: true,
+            doctor: {
+               include: {
+                  schedule: true,
+               },
+            },
+            admin: true,
          },
       });
    }
 
    async update(id: string, data: UpdateUserData): Promise<User> {
-      const updateData: any = { ...data };
+      // Define fields with proper typing
+      const fields = {
+         firstName: "name" as const,
+         lastName: "name" as const,
+         phone: "phone" as const,
+      };
 
-      if (data.firstName) updateData.firstName = data.firstName.trim();
-      if (data.lastName) updateData.lastName = data.lastName.trim();
-      if (data.phone) updateData.phone = data.phone.trim();
+      // Sanitize input data
+      const sanitizedData = SanitizationUtils.sanitizeObject(data, fields);
+
+      const updateData: any = {};
+
+      if (sanitizedData.firstName)
+         updateData.firstName = sanitizedData.firstName.trim();
+      if (sanitizedData.lastName)
+         updateData.lastName = sanitizedData.lastName.trim();
+      if (sanitizedData.phone) updateData.phone = sanitizedData.phone.trim();
+      if (data.gender) updateData.gender = data.gender;
+      if (data.dateOfBirth !== undefined)
+         updateData.dateOfBirth = data.dateOfBirth;
+      if (data.isActive !== undefined) updateData.isActive = data.isActive;
+      if (data.isVerified !== undefined)
+         updateData.isVerified = data.isVerified;
 
       return this.prisma.user.update({
          where: { id },
@@ -80,9 +121,31 @@ export class UserRepository extends BaseRepository {
       });
    }
 
-   async delete(id: string): Promise<User> {
-      return this.prisma.user.delete({
+   async updatePassword(id: string, hashedPassword: string): Promise<User> {
+      return this.prisma.user.update({
          where: { id },
+         data: { password: hashedPassword },
+      });
+   }
+
+   async markAsVerified(id: string): Promise<User> {
+      return this.prisma.user.update({
+         where: { id },
+         data: { isVerified: true },
+      });
+   }
+
+   async deactivate(id: string): Promise<User> {
+      return this.prisma.user.update({
+         where: { id },
+         data: { isActive: false },
+      });
+   }
+
+   async reactivate(id: string): Promise<User> {
+      return this.prisma.user.update({
+         where: { id },
+         data: { isActive: true },
       });
    }
 
@@ -94,98 +157,115 @@ export class UserRepository extends BaseRepository {
          search,
          isActive,
          isVerified,
+         createdAfter,
       } = params || {};
-      const skip = (page - 1) * limit;
 
-      const where: any = {};
+      const { skip, take } = this.getPaginationParams(page, limit);
+
+      const where: Prisma.UserWhereInput = {};
 
       if (role) where.role = role;
       if (isActive !== undefined) where.isActive = isActive;
       if (isVerified !== undefined) where.isVerified = isVerified;
+      if (createdAfter) where.createdAt = { gte: createdAfter };
 
       if (search) {
+         const sanitizedSearch = SanitizationUtils.sanitizeText(search, 50);
          where.OR = [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: sanitizedSearch, mode: "insensitive" } },
+            { lastName: { contains: sanitizedSearch, mode: "insensitive" } },
+            { email: { contains: sanitizedSearch, mode: "insensitive" } },
+            { phone: { contains: sanitizedSearch, mode: "insensitive" } },
          ];
       }
 
       return this.prisma.user.findMany({
          where,
          skip,
-         take: limit,
+         take,
          orderBy: { createdAt: "desc" },
       });
-   }
-
-   async findByRole(role: Role, params?: PaginationParams): Promise<User[]> {
-      const { page = 1, limit = 10 } = params || {};
-      const skip = (page - 1) * limit;
-
-      return this.prisma.user.findMany({
-         where: {
-            role,
-            isActive: true,
-         },
-         skip,
-         take: limit,
-         orderBy: { createdAt: "desc" },
-      });
-   }
-
-   async search(params: UserQueryParams): Promise<User[]> {
-      return this.findAll(params);
-   }
-
-   async existsByEmail(email: string): Promise<boolean> {
-      const count = await this.prisma.user.count({
-         where: {
-            email: email.toLowerCase().trim(),
-            isActive: true,
-         },
-      });
-      return count > 0;
-   }
-
-   async existsByPhone(phone: string): Promise<boolean> {
-      const count = await this.prisma.user.count({
-         where: {
-            phone: phone.trim(),
-            isActive: true,
-         },
-      });
-      return count > 0;
    }
 
    async count(params?: Partial<UserQueryParams>): Promise<number> {
       const { role, search, isActive, isVerified } = params || {};
 
-      const where: any = {};
+      const where: Prisma.UserWhereInput = {};
 
       if (role) where.role = role;
       if (isActive !== undefined) where.isActive = isActive;
       if (isVerified !== undefined) where.isVerified = isVerified;
 
       if (search) {
+         const sanitizedSearch = SanitizationUtils.sanitizeText(search, 50);
          where.OR = [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: sanitizedSearch, mode: "insensitive" } },
+            { lastName: { contains: sanitizedSearch, mode: "insensitive" } },
+            { email: { contains: sanitizedSearch, mode: "insensitive" } },
+            { phone: { contains: sanitizedSearch, mode: "insensitive" } },
          ];
       }
 
       return this.prisma.user.count({ where });
    }
 
-   async findByIds(ids: string[]): Promise<User[]> {
-      return this.prisma.user.findMany({
-         where: {
-            id: { in: ids },
-            isActive: true,
-         },
+   async existsByEmail(email: string): Promise<boolean> {
+      const sanitizedEmail = SanitizationUtils.sanitizeEmail(email);
+      const count = await this.prisma.user.count({
+         where: { email: sanitizedEmail.toLowerCase().trim() },
       });
+      return count > 0;
+   }
+
+   async existsByPhone(phone: string): Promise<boolean> {
+      const sanitizedPhone = SanitizationUtils.sanitizePhone(phone);
+      const count = await this.prisma.user.count({
+         where: { phone: sanitizedPhone.trim() },
+      });
+      return count > 0;
+   }
+
+   async getStats(): Promise<{
+      total: number;
+      byRole: Record<Role, number>;
+      activeCount: number;
+      verifiedCount: number;
+      recentSignups: number;
+   }> {
+      const [total, byRoleResult, activeCount, verifiedCount] =
+         await Promise.all([
+            this.prisma.user.count(),
+            this.prisma.user.groupBy({
+               by: ["role"],
+               _count: true,
+            }),
+            this.prisma.user.count({ where: { isActive: true } }),
+            this.prisma.user.count({ where: { isVerified: true } }),
+         ]);
+
+      const byRole: Record<Role, number> = {
+         PATIENT: 0,
+         DOCTOR: 0,
+         ADMIN: 0,
+      };
+
+      byRoleResult.forEach((item) => {
+         byRole[item.role] = item._count;
+      });
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const recentSignups = await this.prisma.user.count({
+         where: { createdAt: { gte: oneWeekAgo } },
+      });
+
+      return {
+         total,
+         byRole,
+         activeCount,
+         verifiedCount,
+         recentSignups,
+      };
    }
 }

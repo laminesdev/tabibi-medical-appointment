@@ -44,17 +44,25 @@ export type TimeSlot = {
 };
 
 export type AppointmentWithDetails = IAppointment & {
-   patient: {
+  patient: {
+    id: string;
+    user: {
       id: string;
       firstName: string;
       lastName: string;
       phone: string;
-   };
-   doctor: {
+      email: string;
+    };
+  };
+  doctor: {
+    id: string;
+    user: {
       id: string;
       firstName: string;
       lastName: string;
-      specialty: string;
-      location: string;
-   };
+      email: string;
+    };
+    specialty: string;
+    location: string;
+  };
 };

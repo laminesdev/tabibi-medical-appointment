@@ -133,6 +133,11 @@ model Appointment {
   @@index([doctorId])
   @@index([status])
   @@index([date])
+  // Additional indexes for performance
+  @@index([patientId, status])
+  @@index([doctorId, date])
+  @@index([doctorId, status])
+  @@index([date, status])
 }
 
 model Admin {

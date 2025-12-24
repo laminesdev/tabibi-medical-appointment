@@ -34,7 +34,7 @@ export type {
    UpdateScheduleDTO,
    SearchDoctorsDTO,
    DoctorAvailabilityDTO,
-   AvailableSlot,
+   AvailableSlot as DoctorAvailableSlot,
    DoctorWithSchedule,
 } from "./doctor.types";
 
@@ -49,17 +49,6 @@ export type {
    ResetPasswordDTO,
    VerifyEmailDTO,
 } from "./auth.types";
-
-// Error types
-export {
-   AppError,
-   NotFoundError,
-   BadRequestError,
-   UnauthorizedError,
-   ForbiddenError,
-   ConflictError,
-   ValidationError,
-} from "./error.types";
 
 // Express types
 export type {
@@ -77,3 +66,17 @@ export type {
    DoctorDashboardStats,
    PatientDashboardStats,
 } from "./dashboard.types";
+
+// Pagination types
+export type {
+   PaginationParams,
+   PaginationResult,
+   PaginatedResponse,
+} from "./pagination.types";
+
+// Schedule types
+export type {
+   ScheduleDayConfig,
+   AvailableSlot,
+   DoctorAvailability,
+} from "./schedule.types";
