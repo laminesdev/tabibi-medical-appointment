@@ -785,10 +785,6 @@ npm run prisma:studio
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a pull request
 
-## License
-
-This project is licensed under the MIT License.
-
 ## Contact
 
 For questions or support, please contact the development team.
