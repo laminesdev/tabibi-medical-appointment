@@ -1,77 +1,91 @@
-# Tabibi Medical Appointment System - Implementation Tasks
-
-This document tracks the implementation progress of the Tabibi frontend. Tasks are organized by user role and feature, with completed tasks marked as done.
+# Tabibi Medical Appointment System — Implementation Tasks
 
 ## Project Setup
 - [x] Create comprehensive frontend implementation plan (PLAN.md)
 - [x] Set up React + Vite + TypeScript project
 - [x] Install required dependencies (TailwindCSS, Axios, Zustand, etc.)
 - [x] Define project structure
-- [x] Update PLAN.md with project structure
-- [x] Install shadcn/ui components
-- [x] Customize theme to match requirements (pure white background, more rounded corners, bigger drop shadows)
+- [x] Install shadcn/ui components (18 primitives)
+- [x] Customize theme (teal primary `#00A3A3`, xl rounded corners, light mode)
 
-## Core Infrastructure
-- [x] Set up routing structure
-- [x] Implement authentication state management with Zustand
-- [x] Create API service layer for backend communication
-- [x] Implement error handling and notification system
-- [x] Set up form validation utilities
+## Phase P1 — Core Infrastructure (COMPLETE)
 
-## Visitor/Public Functionality
-- [ ] Create landing page with hero section
-- [ ] Implement doctor search functionality (by specialty and location)
-- [ ] Create search results page with doctor cards
-- [ ] Implement doctor profile view page
-- [ ] Create registration page with role selection
+### Types
+- [x] `auth.types.ts` — IUser, Role, LoginData, RegisterData, AuthResponse
+- [x] `doctor.types.ts` — DoctorSummary, DoctorProfile, ScheduleData, ScheduleDay, Slot
+- [x] `appointment.types.ts` — Appointment, AppointmentStatus, BookAppointmentData, RescheduleData
+- [x] `api.types.ts` — ApiResponse, PaginatedResponse, ApiError, Pagination, DashboardData
 
-## Authentication System
-- [ ] Implement login page
-- [ ] Create authentication context/provider
-- [ ] Implement token storage and refresh mechanism
-- [ ] Create protected route components
+### Services
+- [x] `api.ts` — Axios instance + JWT interceptor + refresh token queue + error normalizer
+- [x] `auth.service.ts` — login, register, refreshToken
+- [x] `search.service.ts` — searchDoctors, getFeaturedDoctors, getDoctorById, getAvailableSlots
+- [x] `patient.service.ts` — getProfile, getAppointments, bookAppointment, cancelAppointment, rescheduleAppointment
+- [x] `doctor.service.ts` — getAppointments, getAppointmentById, updateStatus, getSchedule, updateSchedule, getProfile, updateProfile
+- [x] `admin.service.ts` — getDashboard, getDoctors CRUD, getUsers CRUD, deactivate/reactivate
 
-## Patient Functionality
-- [ ] Create patient dashboard
-- [ ] Implement appointment booking flow
-- [ ] Create appointment management (view, cancel, reschedule)
-- [ ] Implement appointment history view
+### Stores (Zustand)
+- [x] `authStore.ts` — user, tokens, login/register/logout/refresh/loadFromStorage
+- [x] `appointmentStore.ts` — patient appointments, book/cancel/reschedule with loading/error states
+- [x] `scheduleStore.ts` — doctor schedule fetch/update with default factory
+- [x] `adminStore.ts` — dashboard, doctors CRUD, users CRUD, deactivate/reactivate — all with uniform try/catch
 
-## Doctor Functionality
-- [ ] Create doctor dashboard
-- [ ] Implement schedule management
-- [ ] Create appointment management for doctors
-- [ ] Implement profile management
+### Layout & Routing
+- [x] `PublicLayout.tsx` — Header + footer wrapper
+- [x] `AppLayout.tsx` — Sidebar + header + responsive hamburger menu
+- [x] `Header.tsx` — Logo, nav links (auth-aware)
+- [x] `Sidebar.tsx` — Role-based navigation (Patient/Doctor/Admin)
+- [x] `ProtectedRoute.tsx` — Auth guard + role check + deactivation check + returnUrl
+- [x] `App.tsx` — Full routing tree (20 routes across 4 roles)
 
-## Admin Functionality
-- [ ] Create admin dashboard with statistics
-- [ ] Implement doctor management (add, update, remove)
-- [ ] Create user management interface
-- [ ] Implement system monitoring features
+### Visitor Pages
+- [x] `Landing.tsx` — Hero with search, How It Works, Featured Doctors (with skeleton/empty/error states), CTA
+- [x] `Login.tsx` — Email + password form, deactivation message, role-based redirect
+- [x] `Register.tsx` — Role toggle (Patient/Doctor), password strength meter, conditional doctor fields, inline errors
+- [x] `NotFound.tsx` — 404 page with Go Home CTA
 
-## UI Components
-- [ ] Create reusable form components
-- [ ] Implement date/time pickers
-- [ ] Create notification/toast components
-- [ ] Implement data table components
-- [ ] Create modal/dialog components
+### Hooks
+- [x] `useMediaQuery.ts` — Responsive breakpoint detection
 
-## Testing
-- [ ] Set up testing framework
-- [ ] Implement unit tests for components
-- [ ] Create integration tests for user flows
-- [ ] Implement end-to-end tests
+### Bug Fixes Applied
+- [x] ScheduleStore: extracted factory function, exported defaultSchedule
+- [x] RegisterData: phone/consultationFee/experienceYears typed as string
+- [x] PatientProfile: interface added to patient.service.ts
+- [x] adminStore.createDoctor: added try/catch with error state
+- [x] adminStore.updateDoctor: re-fetches after update via getDoctorById
+- [x] DoctorProfile.user: nests gender/isActive fields
+- [x] createDoctor/updateDoctor: proper return types (not any)
+- [x] Login: surfaces deactivation reason + ProtectedRoute handles ?reason=deactivated
+- [x] cancelAppointment/removeDoctor/updateUser/deactivateUser/reactivateUser: added uniform try/catch + loading/error state
 
-## Deployment Preparation
-- [ ] Optimize build configuration
-- [ ] Set up environment variables
-- [ ] Implement production error logging
-- [ ] Create deployment documentation
+## Phase P2 — Search & Public Profiles (PLACEHOLDER)
+- [ ] DoctorCard, SlotGrid, StatusBadge, EmptyState, Pagination, SearchBar components
+- [ ] SearchResults page with filters + doctor cards + pagination
+- [ ] DoctorPublicProfile with schedule + slot picker
 
-## Future Enhancements
-- [ ] Implement appointment reminders
-- [ ] Add doctor rating and review system
-- [ ] Create advanced search filters
-- [ ] Implement calendar integration
-- [ ] Add telemedicine functionality
-- [ ] Implement multi-language support
+## Phase P3 — Patient Functionality (PLACEHOLDER)
+- [ ] PatientDashboard with upcoming appointments
+- [ ] BookingWizard (3-step: doctor → date/time → confirm)
+- [ ] MyAppointments with tabs + actions
+- [ ] AppointmentDetail with cancel/reschedule
+- [ ] AppointmentCard, ConfirmModal, DatePicker components
+
+## Phase P4 — Doctor Functionality (PLACEHOLDER)
+- [ ] DoctorDashboard with today's appointments
+- [ ] AppointmentManagement with status actions
+- [ ] DoctorAppointmentDetail
+- [ ] ScheduleManagement (weekly grid editor)
+
+## Phase P5 — Admin Functionality (PLACEHOLDER)
+- [ ] AdminDashboard with recharts + date filter
+- [ ] DoctorManagement with CRUD
+- [ ] CreateDoctor page
+- [ ] EditDoctor page
+- [ ] UserManagement with search/filter
+- [ ] UserDetailEdit with deactivate/reactivate
+
+## Phase P6 — Polish (PLACEHOLDER)
+- [ ] LoadingSkeleton component (card/table/list variants)
+- [ ] ErrorBoundary component
+- [ ] Full mobile responsive pass
+- [ ] Global toast notification system
