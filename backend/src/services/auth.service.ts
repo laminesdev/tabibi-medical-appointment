@@ -4,8 +4,31 @@ import { PatientRepository } from "../repositories/patient.repository";
 import { AdminRepository } from "../repositories/admin.repository";
 import { AuthUtils } from "../utils/auth.utils";
 import { ValidationUtils } from "../utils/validation.utils";
-import { Role } from "@prisma/client";
+import { Role, Gender } from "@prisma/client";
 import { BadRequestError, ConflictError, UnauthorizedError } from "../utils/errors/app.error";
+
+export interface AuthUserResponse {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  gender: Gender;
+  dateOfBirth: Date | null;
+  role: Role;
+  isVerified: boolean;
+  isActive: boolean;
+}
+
+export interface RegisterResponse {
+  user: AuthUserResponse;
+  profile: unknown;
+}
+
+export interface LoginResponse extends RegisterResponse {
+  accessToken: string;
+  refreshToken: string;
+}
 
 export interface RegisterData {
   email: string;
@@ -13,9 +36,9 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   phone: string;
-  gender: string;
+  gender: Gender;
   dateOfBirth?: string;
-  role?: string;
+  role?: Role;
   // Doctor specific fields
   specialty?: string;
   location?: string;
@@ -28,6 +51,10 @@ export interface RegisterData {
 export interface LoginData {
   email: string;
   password: string;
+}
+
+export interface TokenRefreshResponse {
+  accessToken: string;
 }
 
 export interface TokenData {
@@ -47,7 +74,7 @@ export class AuthService {
     this.adminRepository = new AdminRepository();
   }
 
-  async register(data: RegisterData): Promise<any> {
+  async register(data: RegisterData): Promise<RegisterResponse> {
     const {
       email,
       password,
@@ -56,7 +83,7 @@ export class AuthService {
       phone,
       gender,
       dateOfBirth,
-      role = "PATIENT",
+      role = Role.PATIENT,
       // Doctor specific fields
       specialty,
       location,
@@ -65,6 +92,10 @@ export class AuthService {
       experienceYears,
       education,
     } = data;
+
+    if (role === Role.ADMIN) {
+      throw new BadRequestError("Admin registration is not allowed");
+    }
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName || !phone || !gender) {
@@ -79,12 +110,6 @@ export class AuthService {
     // Validate phone format
     if (!ValidationUtils.isValidPhone(phone)) {
       throw new BadRequestError("Invalid phone number format");
-    }
-
-    // Validate password strength
-    const passwordValidation = AuthUtils.validatePasswordStrength(password);
-    if (!passwordValidation.valid) {
-      throw new BadRequestError(passwordValidation.message);
     }
 
     // Check if user already exists
@@ -109,14 +134,14 @@ export class AuthService {
       firstName,
       lastName,
       phone,
-      gender: gender as any,
+      gender,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      role: role as Role,
+      role,
     });
 
     // Create role-specific profile
     let profile;
-    if (role === "DOCTOR") {
+    if (role === Role.DOCTOR) {
       if (!specialty || !location) {
         throw new BadRequestError("Specialty and location are required for doctors");
       }
@@ -129,11 +154,11 @@ export class AuthService {
         experienceYears: experienceYears ? parseInt(experienceYears) : undefined,
         education,
       });
-    } else if (role === "PATIENT") {
+    } else if (role === Role.PATIENT) {
       profile = await this.patientRepository.create({
         userId: user.id,
       });
-    } else if (role === "ADMIN") {
+    } else if (role === Role.ADMIN) {
       profile = await this.adminRepository.create({
         userId: user.id,
       });
@@ -156,7 +181,7 @@ export class AuthService {
     };
   }
 
-  async login(data: LoginData): Promise<any> {
+  async login(data: LoginData): Promise<LoginResponse> {
     const { email, password } = data;
 
     if (!email || !password) {
@@ -192,11 +217,11 @@ export class AuthService {
 
     // Get user profile based on role
     let profile;
-    if (user.role === "DOCTOR") {
+    if (user.role === Role.DOCTOR) {
       profile = await this.doctorRepository.findByUserId(user.id);
-    } else if (user.role === "PATIENT") {
+    } else if (user.role === Role.PATIENT) {
       profile = await this.patientRepository.findByUserId(user.id);
-    } else if (user.role === "ADMIN") {
+    } else if (user.role === Role.ADMIN) {
       profile = await this.adminRepository.findByUserId(user.id);
     }
 
@@ -219,7 +244,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(data: TokenData): Promise<any> {
+  async refreshToken(data: TokenData): Promise<TokenRefreshResponse> {
     const { refreshToken } = data;
 
     if (!refreshToken) {

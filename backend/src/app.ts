@@ -2,13 +2,10 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import dotenv from "dotenv";
 import { errorHandler, notFound } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/request-logger.middleware";
 import { BaseRepository } from "./repositories/base.repository";
-
-// Load environment variables
-dotenv.config();
+import { env } from "./config/env";
 
 const app = express();
 
@@ -18,24 +15,21 @@ app.use(requestLogger);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration — supports comma-separated origins
+const corsOrigins = (env.CORS_ORIGIN)
+   .split(",")
+   .map((o) => o.trim());
 const corsOptions = {
-   origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+   origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
    credentials: true,
    optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
-// Rate limiting with safe parsing
-const parseRateLimitValue = (value: string | undefined, defaultValue: number): number => {
-   if (!value) return defaultValue;
-   const parsed = parseInt(value, 10);
-   return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed;
-};
-
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: parseRateLimitValue(process.env.RATE_LIMIT_WINDOW_MS, 900000), // 15 minutes default
-  max: parseRateLimitValue(process.env.RATE_LIMIT_MAX, process.env.NODE_ENV === 'development' ? 1000 : 100), // 1000 requests for dev, 100 for prod
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.NODE_ENV === 'development' ? 1000 : env.RATE_LIMIT_MAX,
   message: "Too many requests from this IP, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
@@ -48,7 +42,15 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint with database connectivity test
 app.get("/health", async (_req: Request, res: Response) => {
-   const healthcheck: any = {
+   const healthcheck: {
+      status: string;
+      message: string;
+      timestamp: string;
+      environment: string | undefined;
+      version: string;
+      services: { api: boolean; database: boolean };
+      error?: string;
+   } = {
       status: "success",
       message: "Tabibi API is running",
       timestamp: new Date().toISOString(),

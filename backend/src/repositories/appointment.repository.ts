@@ -18,7 +18,7 @@ export class AppointmentRepository extends BaseRepository {
                date: data.date,
                timeSlot: data.timeSlot,
                reason: data.reason,
-               status: "PENDING",
+               status: AppointmentStatus.PENDING,
             },
          });
       } catch (error) {
@@ -73,7 +73,7 @@ export class AppointmentRepository extends BaseRepository {
             },
             timeSlot,
             status: {
-               notIn: ["CANCELLED", "REJECTED"],
+               notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.REJECTED],
             },
          },
       });
@@ -90,7 +90,7 @@ export class AppointmentRepository extends BaseRepository {
                lte,
             },
             status: {
-               notIn: ["CANCELLED", "REJECTED"],
+               notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.REJECTED],
             },
          },
          select: {
@@ -185,37 +185,5 @@ export class AppointmentRepository extends BaseRepository {
       where?: Prisma.AppointmentWhereInput
    ): Promise<number> {
       return this.prisma.appointment.count({ where });
-   }
-
-   // FIXED: Transactional appointment creation with proper error handling
-   async createWithTransaction(
-      data: CreateAppointmentDTO & { patientId: string }
-   ): Promise<Appointment> {
-      try {
-         return await this.prisma.$transaction(async (prisma) => {
-            return await prisma.appointment.create({
-               data: {
-                  patientId: data.patientId,
-                  doctorId: data.doctorId,
-                  date: data.date,
-                  timeSlot: data.timeSlot,
-                  reason: data.reason,
-                  status: "PENDING",
-               },
-            });
-         });
-      } catch (error) {
-         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === "P2002") {
-               const meta = error.meta as { target?: string[] };
-               if (meta?.target?.includes("doctorId") && 
-                   meta?.target?.includes("date") && 
-                   meta?.target?.includes("timeSlot")) {
-                  throw new ConflictError("Time slot is already booked");
-               }
-            }
-         }
-         throw error;
-      }
    }
 }

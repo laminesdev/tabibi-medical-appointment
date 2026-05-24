@@ -1,3 +1,6 @@
+import { BadRequestError } from "./errors/app.error";
+import { Logger } from "./logger.utils";
+
 export class SanitizationUtils {
    static sanitizeText(text: string, maxLength: number = 1000): string {
       if (!text) return text;
@@ -36,7 +39,7 @@ export class SanitizationUtils {
       // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(sanitized)) {
-         throw new Error("Invalid email format");
+         throw new BadRequestError("Invalid email format");
       }
 
       return sanitized;
@@ -88,7 +91,7 @@ export class SanitizationUtils {
                }
             } catch (error) {
                // If sanitization fails, remove the field
-               console.warn(`Failed to sanitize field ${key}:`, error);
+                Logger.warn(`Failed to sanitize field ${key}:`, error);
                delete sanitized[key];
             }
          }

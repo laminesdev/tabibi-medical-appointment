@@ -5,6 +5,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { Role } from "@prisma/client";
 import { IUser } from "../types/user.types";
 import { SanitizationUtils } from "../utils/sanitization.utils";
+import { Logger } from "../utils/logger.utils";
 
 // Create a singleton instance to avoid multiple Prisma clients
 let userRepository: UserRepository | null = null;
@@ -16,12 +17,8 @@ const getUserRepository = (): UserRepository => {
    return userRepository;
 };
 
-export interface AuthRequest extends Request {
-   user?: IUser;
-}
-
 export const authenticate = async (
-   req: AuthRequest,
+   req: Request,
    _res: Response,
    next: NextFunction
 ): Promise<void> => {
@@ -75,7 +72,7 @@ export const authenticate = async (
 };
 
 export const authorize = (...allowedRoles: Role[]) => {
-   return (req: AuthRequest, _res: Response, next: NextFunction): void => {
+   return (req: Request, _res: Response, next: NextFunction): void => {
       try {
          if (!req.user) {
             throw new UnauthorizedError("Authentication required");
@@ -94,86 +91,6 @@ export const authorize = (...allowedRoles: Role[]) => {
    };
 };
 
-export const optionalAuth = async (
-   req: AuthRequest,
-   _res: Response,
-   next: NextFunction
-): Promise<void> => {
-   try {
-      const authHeader = req.headers.authorization;
-
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-         return next();
-      }
-
-      const token = AuthUtils.extractToken(authHeader);
-
-      if (!token) {
-         return next();
-      }
-
-      try {
-         const decoded = AuthUtils.verifyAccessToken(token);
-
-         const repository = getUserRepository();
-         const user = await repository.findById(decoded.userId);
-
-         if (user && user.isActive) {
-            const userData: IUser = {
-               id: user.id,
-               email: user.email,
-               firstName: user.firstName,
-               lastName: user.lastName,
-               phone: user.phone,
-               gender: user.gender, // Direct assignment
-               dateOfBirth: user.dateOfBirth || undefined,
-               role: user.role,
-               isVerified: user.isVerified,
-               isActive: user.isActive,
-               createdAt: user.createdAt,
-               updatedAt: user.updatedAt,
-            };
-            req.user = userData;
-         }
-      } catch (error) {
-         // Token invalid but continue anyway
-         if (error instanceof Error) {
-            console.debug("Invalid token in optional auth:", error.message);
-         } else {
-            console.debug("Invalid token in optional auth:", String(error));
-         }
-      }
-
-      next();
-   } catch (error) {
-      next(error);
-   }
-};
-
-export const requireVerified = async (
-   req: AuthRequest,
-   _res: Response,
-   next: NextFunction
-): Promise<void> => {
-   try {
-      if (!req.user) {
-         throw new UnauthorizedError("Authentication required");
-      }
-
-      const repository = getUserRepository();
-      const user = await repository.findById(req.user.id);
-
-      if (!user || !user.isVerified) {
-         throw new ForbiddenError("Email verification required");
-      }
-
-      next();
-   } catch (error) {
-      next(error);
-   }
-};
-
-// New middleware for input sanitization
 export const sanitizeInput = (
    fields: Record<string, "text" | "name" | "email" | "phone" | "none">
 ) => {
@@ -184,23 +101,10 @@ export const sanitizeInput = (
             req.body = SanitizationUtils.sanitizeObject(req.body, fields);
          }
 
-// Sanitize query params (string values only)
-      // Note: We can't reassign req.query directly in newer Express versions
-      // Instead, we sanitize individual query parameters when accessed
-      // For now, we'll skip query sanitization to avoid the error
-
          next();
-      } catch (error) {
-         console.error("Input sanitization error:", error);
-         next(error);
-      }
-   };
-};
-
-// Export a cleanup function for testing
-export const cleanupAuth = (): void => {
-   if (userRepository) {
-      userRepository.disconnect().catch(console.error);
-      userRepository = null;
-   }
-};
+       } catch (error) {
+          Logger.error("Input sanitization error:", error);
+          next(error);
+       }
+    };
+ };

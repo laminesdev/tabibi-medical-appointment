@@ -110,7 +110,7 @@ const handlePrismaError = (
    }
 };
 
-export const catchAsync = (fn: Function) => {
+export const catchAsync = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) => {
    return (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);
    };
@@ -122,11 +122,4 @@ export const notFound = (req: Request, _res: Response, next: NextFunction) => {
    next(error);
 };
 
-// Additional helper for route not found
-export const routeNotFound = (req: Request, res: Response) => {
-   res.status(404).json({
-      status: "error",
-      message: `Route ${req.originalUrl} not found`,
-      method: req.method,
-   });
-};
+

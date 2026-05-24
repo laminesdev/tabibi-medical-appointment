@@ -1,4 +1,4 @@
-import { Patient, Prisma } from "@prisma/client";
+import { Patient, AppointmentStatus, Prisma } from "@prisma/client";
 import { BaseRepository } from "./base.repository";
 
 export interface CreatePatientData {
@@ -44,18 +44,6 @@ export class PatientRepository extends BaseRepository {
          where: { userId },
          include: {
             user: true,
-            appointments: {
-               where: {
-                  date: { gte: new Date() },
-               },
-               include: {
-                  doctor: {
-                     include: { user: true },
-                  },
-               },
-               orderBy: { date: "asc" },
-               take: 10,
-            },
          },
       });
    }
@@ -136,14 +124,14 @@ export class PatientRepository extends BaseRepository {
             where: {
                patientId,
                date: { gte: new Date() },
-               status: { in: ["PENDING", "CONFIRMED"] },
+                status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
             },
          }),
          this.prisma.appointment.count({
-            where: { patientId, status: "COMPLETED" },
+            where: { patientId, status: AppointmentStatus.COMPLETED },
          }),
          this.prisma.appointment.count({
-            where: { patientId, status: "CANCELLED" },
+            where: { patientId, status: AppointmentStatus.CANCELLED },
          }),
       ]);
 

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import { SearchService, SearchDoctorParams } from "../services/search.service";
+import { SearchService } from "../services/search.service";
 import { catchAsync } from "../middleware/error.middleware";
+import { ResponseUtils } from "../utils/response.utils";
 
 export class SearchController {
   private searchService: SearchService;
@@ -10,26 +11,33 @@ export class SearchController {
   }
 
   searchDoctors = catchAsync(async (req: Request, res: Response) => {
-    const params: SearchDoctorParams = req.query as any;
-    
+    const params = req.query;
+
     const result = await this.searchService.searchDoctors(params);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctors retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.paginated(res, result.doctors, result.pagination.total, result.pagination.page, result.pagination.limit);
   });
 
   getDoctorById = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     const result = await this.searchService.getDoctorById(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor retrieved successfully");
+  });
+
+  getFeaturedDoctors = catchAsync(async (_req: Request, res: Response) => {
+    const result = await this.searchService.getFeaturedDoctors();
+
+    ResponseUtils.success(res, result, "Featured doctors retrieved successfully");
+  });
+
+  getAvailableSlots = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { date } = req.query as { date: string };
+
+    const result = await this.searchService.getAvailableSlots(id, date);
+
+    ResponseUtils.success(res, result, "Available slots retrieved successfully");
   });
 }

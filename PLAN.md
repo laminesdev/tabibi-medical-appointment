@@ -125,14 +125,16 @@ The frontend will communicate with the backend API running on `http://localhost:
   - Appointment booking option (for registered patients)
 
 - **Registration Page**
-  - Role selection (Patient, Doctor, Admin)
+  - Role selection (Patient, Doctor)
   - Form with validation
   - Password strength indicator
   - Terms and conditions acceptance
 
 ### API Endpoints
 - `GET /api/search/doctors` - Search doctors by specialty/location
+- `GET /api/search/doctors/featured` - Get featured/top-rated doctors for landing page
 - `GET /api/search/doctors/:id` - Get doctor by ID
+- `GET /api/search/doctors/:id/slots?date=YYYY-MM-DD` - Get available time slots for a doctor on a given date
 - `POST /api/auth/register` - User registration
 
 ## Phase 2: Patient Functionality
@@ -169,6 +171,7 @@ The frontend will communicate with the backend API running on `http://localhost:
 ### API Endpoints
 - `POST /api/auth/login` - User login
 - `POST /api/auth/refresh` - Token refresh
+- `GET /api/patients/profile` - Get patient's own profile with user data
 - `POST /api/patients/appointments` - Book appointment
 - `GET /api/patients/appointments` - Get all appointments
 - `GET /api/patients/appointments/:id` - Get appointment by ID
@@ -224,9 +227,10 @@ The frontend will communicate with the backend API running on `http://localhost:
 
 ### Pages & Components
 - **Admin Dashboard**
-  - System statistics (users, doctors, appointments)
+  - System statistics (users, doctors, appointments with per-status breakdown)
   - Charts for data visualization
   - Quick actions
+  - Optional date-range filtering via `startDate` and `endDate` query params
 
 - **Doctor Management**
   - List of all doctors

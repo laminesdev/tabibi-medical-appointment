@@ -1,4 +1,4 @@
-import { Doctor, Prisma } from "@prisma/client";
+import { Doctor, AppointmentStatus, Prisma } from "@prisma/client";
 import { BaseRepository } from "./base.repository";
 
 export interface CreateDoctorData {
@@ -81,7 +81,7 @@ export class DoctorRepository extends BaseRepository {
    }
 
    async update(id: string, data: UpdateDoctorData): Promise<Doctor> {
-      const updateData: any = {};
+      const updateData: Partial<Prisma.DoctorUpdateInput> = {};
 
       if (data.specialty) updateData.specialty = data.specialty.trim();
       if (data.location) updateData.location = data.location.trim();
@@ -214,14 +214,14 @@ export class DoctorRepository extends BaseRepository {
                where: {
                   doctorId,
                   date: { gte: new Date() },
-                  status: { in: ["PENDING", "CONFIRMED"] },
+                  status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
                },
             }),
             this.prisma.appointment.count({
-               where: { doctorId, status: "COMPLETED" },
+               where: { doctorId, status: AppointmentStatus.COMPLETED },
             }),
             this.prisma.appointment.count({
-               where: { doctorId, status: "CANCELLED" },
+               where: { doctorId, status: AppointmentStatus.CANCELLED },
             }),
             this.prisma.doctor.findUnique({
                where: { id: doctorId },

@@ -1,27 +1,26 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateBody, validateQuery, validateParams } from "../middleware/validation.middleware";
 import { PatientController } from "../controllers/patient.controller";
 import { Role } from "@prisma/client";
+import { createAppointmentSchema, appointmentQuerySchema, rescheduleAppointmentSchema } from "../utils/validators/appointment.validator";
+import { idParamSchema } from "../utils/validators/common.validator";
 
 const router = Router();
 const patientController = new PatientController();
 
-// All routes require authentication and patient authorization
 router.use(authenticate, authorize(Role.PATIENT));
 
-// Book an appointment
-router.post("/appointments", patientController.bookAppointment);
+router.get("/profile", patientController.getProfile);
 
-// Get all appointments for patient
-router.get("/appointments", patientController.getAppointments);
+router.post("/appointments", validateBody(createAppointmentSchema), patientController.bookAppointment);
 
-// Get appointment by ID
-router.get("/appointments/:id", patientController.getAppointmentById);
+router.get("/appointments", validateQuery(appointmentQuerySchema), patientController.getAppointments);
 
-// Cancel an appointment
-router.patch("/appointments/:id/cancel", patientController.cancelAppointment);
+router.get("/appointments/:id", validateParams(idParamSchema), patientController.getAppointmentById);
 
-// Reschedule an appointment
-router.patch("/appointments/:id/reschedule", patientController.rescheduleAppointment);
+router.patch("/appointments/:id/cancel", validateParams(idParamSchema), patientController.cancelAppointment);
+
+router.patch("/appointments/:id/reschedule", validateParams(idParamSchema), validateBody(rescheduleAppointmentSchema), patientController.rescheduleAppointment);
 
 export default router;

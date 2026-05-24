@@ -12,11 +12,11 @@ This document tracks the implementation progress of the Tabibi frontend. Tasks a
 - [x] Customize theme to match requirements (pure white background, more rounded corners, bigger drop shadows)
 
 ## Core Infrastructure
-- [ ] Set up routing structure
-- [ ] Implement authentication state management with Zustand
-- [ ] Create API service layer for backend communication
-- [ ] Implement error handling and notification system
-- [ ] Set up form validation utilities
+- [x] Set up routing structure
+- [x] Implement authentication state management with Zustand
+- [x] Create API service layer for backend communication
+- [x] Implement error handling and notification system
+- [x] Set up form validation utilities
 
 ## Visitor/Public Functionality
 - [ ] Create landing page with hero section

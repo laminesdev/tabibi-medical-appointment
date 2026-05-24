@@ -54,13 +54,13 @@ export class ScheduleUtils {
             return { isWorkingDay: false };
          }
 
-         if (config.startTime >= config.endTime) {
-            Logger.warn("Start time must be before end time", { 
-               startTime: config.startTime, 
-               endTime: config.endTime 
-            });
-            return { isWorkingDay: false };
-         }
+      if (!this.isStartBeforeEnd(config.startTime, config.endTime)) {
+         Logger.warn("Start time must be before end time", { 
+            startTime: config.startTime, 
+            endTime: config.endTime 
+         });
+         return { isWorkingDay: false };
+      }
 
          if (config.breaks && Array.isArray(config.breaks)) {
             for (const breakTime of config.breaks) {
@@ -77,7 +77,7 @@ export class ScheduleUtils {
                   return { isWorkingDay: false };
                }
 
-               if (breakTime.start >= breakTime.end) {
+               if (!this.isStartBeforeEnd(breakTime.start, breakTime.end)) {
                   Logger.warn("Break start time must be before end time", { breakTime });
                   return { isWorkingDay: false };
                }
@@ -201,5 +201,14 @@ export class ScheduleUtils {
 
    static isValidTimeFormat(time: string): boolean {
       return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
+   }
+
+   static timeToMinutes(time: string): number {
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m;
+   }
+
+   static isStartBeforeEnd(start: string, end: string): boolean {
+      return this.timeToMinutes(start) < this.timeToMinutes(end);
    }
 }

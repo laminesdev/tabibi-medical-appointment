@@ -1,45 +1,37 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateBody, validateQuery, validateParams } from "../middleware/validation.middleware";
 import { AdminController } from "../controllers/admin.controller";
 import { Role } from "@prisma/client";
+import { adminCreateDoctorSchema, updateDoctorSchema } from "../utils/validators/doctor.validator";
+import { updateProfileSchema } from "../utils/validators/user.validator";
+import { idParamSchema, adminDoctorQuerySchema, adminUserQuerySchema, adminDashboardQuerySchema } from "../utils/validators/common.validator";
 
 const router = Router();
 const adminController = new AdminController();
 
-// All routes require authentication and admin authorization
 router.use(authenticate, authorize(Role.ADMIN));
 
-// Get dashboard statistics
-router.get("/dashboard", adminController.getDashboard);
+router.get("/dashboard", validateQuery(adminDashboardQuerySchema), adminController.getDashboard);
 
-// Get all doctors
-router.get("/doctors", adminController.getDoctors);
+router.get("/doctors", validateQuery(adminDoctorQuerySchema), adminController.getDoctors);
 
-// Get doctor by ID
-router.get("/doctors/:id", adminController.getDoctorById);
+router.get("/doctors/:id", validateParams(idParamSchema), adminController.getDoctorById);
 
-// Add a new doctor
-router.post("/doctors", adminController.createDoctor);
+router.post("/doctors", validateBody(adminCreateDoctorSchema), adminController.createDoctor);
 
-// Update a doctor
-router.patch("/doctors/:id", adminController.updateDoctor);
+router.patch("/doctors/:id", validateParams(idParamSchema), validateBody(updateDoctorSchema), adminController.updateDoctor);
 
-// Remove a doctor
-router.delete("/doctors/:id", adminController.removeDoctor);
+router.delete("/doctors/:id", validateParams(idParamSchema), adminController.removeDoctor);
 
-// Get all users
-router.get("/users", adminController.getUsers);
+router.get("/users", validateQuery(adminUserQuerySchema), adminController.getUsers);
 
-// Get user by ID
-router.get("/users/:id", adminController.getUserById);
+router.get("/users/:id", validateParams(idParamSchema), adminController.getUserById);
 
-// Update user
-router.patch("/users/:id", adminController.updateUser);
+router.patch("/users/:id", validateParams(idParamSchema), validateBody(updateProfileSchema), adminController.updateUser);
 
-// Deactivate user
-router.patch("/users/:id/deactivate", adminController.deactivateUser);
+router.patch("/users/:id/deactivate", validateParams(idParamSchema), adminController.deactivateUser);
 
-// Reactivate user
-router.patch("/users/:id/reactivate", adminController.reactivateUser);
+router.patch("/users/:id/reactivate", validateParams(idParamSchema), adminController.reactivateUser);
 
 export default router;

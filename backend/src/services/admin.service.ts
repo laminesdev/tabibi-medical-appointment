@@ -1,8 +1,9 @@
-import { UserRepository } from "../repositories/user.repository";
+import { UserRepository, UpdateUserData } from "../repositories/user.repository";
 import { DoctorRepository } from "../repositories/doctor.repository";
+import { AppointmentRepository } from "../repositories/appointment.repository";
 import { AuthUtils } from "../utils/auth.utils";
-import { BadRequestError, NotFoundError } from "../utils/errors/app.error";
-import { Role } from "@prisma/client";
+import { BadRequestError, NotFoundError, ConflictError } from "../utils/errors/app.error";
+import { Role, Gender, User, Doctor, AppointmentStatus } from "@prisma/client";
 
 export interface CreateDoctorData {
   email: string;
@@ -21,9 +22,54 @@ export interface CreateDoctorData {
 }
 
 export interface UpdateDoctorData {
-  [key: string]: any;
   consultationFee?: string;
   experienceYears?: string;
+  bio?: string;
+  specialty?: string;
+  location?: string;
+  education?: string;
+}
+
+export interface DashboardData {
+  users: {
+    total: number;
+    byRole: Record<Role, number>;
+    activeCount: number;
+    verifiedCount: number;
+    recentSignups: number;
+  };
+  doctors: {
+    total: number;
+    topRated: Doctor[];
+  };
+  appointments: {
+    total: number;
+    byStatus: Record<AppointmentStatus, number>;
+    todayCount: number;
+  };
+}
+
+export interface PaginatedDoctors {
+  doctors: Doctor[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface PaginatedUsers {
+  users: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface CreatedDoctorResult {
+  user: User;
+  doctor: Doctor;
 }
 
 export interface SearchDoctorParams {
@@ -38,7 +84,7 @@ export interface SearchDoctorParams {
 export interface SearchUserParams {
   page?: number;
   limit?: number;
-  role?: string;
+  role?: Role;
   search?: string;
   isActive?: boolean;
   isVerified?: boolean;
@@ -47,40 +93,74 @@ export interface SearchUserParams {
 export class AdminService {
   private userRepository: UserRepository;
   private doctorRepository: DoctorRepository;
+  private appointmentRepository: AppointmentRepository;
 
   constructor() {
     this.userRepository = new UserRepository();
     this.doctorRepository = new DoctorRepository();
+    this.appointmentRepository = new AppointmentRepository();
   }
 
-  async getDashboardData(): Promise<any> {
-    // Get user statistics
-    const userStats = await this.userRepository.getStats();
-    
-    // Get doctor statistics
-    const doctors = await this.doctorRepository.findAll();
-    const totalDoctors = doctors.length;
-    
-    // Get top-rated doctors
-    const topDoctors = await this.doctorRepository.getTopRated(5);
+  async getDashboardData(startDate?: string, endDate?: string): Promise<DashboardData> {
+    const dateRange = startDate || endDate
+      ? {
+           startDate: startDate ? new Date(startDate) : undefined,
+           endDate: endDate ? new Date(endDate) : undefined,
+        }
+      : undefined;
+
+    const appointmentDateFilter = dateRange
+      ? { date: { ...(dateRange.startDate && { gte: dateRange.startDate }), ...(dateRange.endDate && { lte: dateRange.endDate }) } }
+      : undefined;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [userStats, doctors, topDoctors, totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments, completedAppointments, rescheduledAppointments, rejectedAppointments, todayAppointments] = await Promise.all([
+      this.userRepository.getStats(dateRange),
+      this.doctorRepository.findAll(),
+      this.doctorRepository.getTopRated(5),
+      this.appointmentRepository.countAppointments(appointmentDateFilter),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.PENDING }),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.CONFIRMED }),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.CANCELLED }),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.COMPLETED }),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.RESCHEDULED }),
+      this.appointmentRepository.countAppointments({ ...appointmentDateFilter, status: AppointmentStatus.REJECTED }),
+      this.appointmentRepository.countAppointments({ date: { gte: todayStart, lte: todayEnd } }),
+    ]);
     
     return {
       users: userStats,
       doctors: {
-        total: totalDoctors,
+        total: doctors.length,
         topRated: topDoctors,
+      },
+      appointments: {
+        total: totalAppointments,
+        byStatus: {
+          PENDING: pendingAppointments,
+          CONFIRMED: confirmedAppointments,
+          CANCELLED: cancelledAppointments,
+          COMPLETED: completedAppointments,
+          RESCHEDULED: rescheduledAppointments,
+          REJECTED: rejectedAppointments,
+        },
+        todayCount: todayAppointments,
       },
     };
   }
 
-  async searchDoctors(params: SearchDoctorParams): Promise<any> {
-    const searchParams: any = {
-      page: params.page ? parseInt(params.page as any) : undefined,
-      limit: params.limit ? parseInt(params.limit as any) : undefined,
+  async searchDoctors(params: SearchDoctorParams): Promise<PaginatedDoctors> {
+    const searchParams: Partial<SearchDoctorParams> = {
+      page: params.page,
+      limit: params.limit,
       search: params.search,
       specialty: params.specialty,
       location: params.location,
-      minRating: params.minRating ? parseFloat(params.minRating as any) : undefined,
+      minRating: params.minRating,
     };
     
     const doctors = await this.doctorRepository.search(searchParams);
@@ -96,7 +176,7 @@ export class AdminService {
     };
   }
 
-  async getDoctorById(id: string): Promise<any> {
+  async getDoctorById(id: string): Promise<Doctor> {
     const doctor = await this.doctorRepository.findById(id);
     if (!doctor) {
       throw new NotFoundError("Doctor not found");
@@ -104,7 +184,7 @@ export class AdminService {
     return doctor;
   }
 
-  async createDoctor(data: CreateDoctorData): Promise<any> {
+  async createDoctor(data: CreateDoctorData): Promise<CreatedDoctorResult> {
     const {
       email,
       password,
@@ -129,13 +209,13 @@ export class AdminService {
     // Check if user already exists
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser) {
-      throw new BadRequestError("User with this email already exists");
+      throw new ConflictError("User with this email already exists");
     }
 
     // Check if phone already exists
     const existingPhone = await this.userRepository.existsByPhone(phone);
     if (existingPhone) {
-      throw new BadRequestError("User with this phone number already exists");
+      throw new ConflictError("User with this phone number already exists");
     }
 
     // Hash password
@@ -148,7 +228,7 @@ export class AdminService {
       firstName,
       lastName,
       phone,
-      gender: gender as any,
+      gender: gender as Gender,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       role: Role.DOCTOR,
     });
@@ -170,7 +250,7 @@ export class AdminService {
     };
   }
 
-  async updateDoctor(id: string, data: UpdateDoctorData): Promise<any> {
+  async updateDoctor(id: string, data: UpdateDoctorData): Promise<Doctor> {
     // Update doctor profile
     const doctor = await this.doctorRepository.update(id, {
       ...data,
@@ -182,21 +262,19 @@ export class AdminService {
   }
 
   async removeDoctor(id: string): Promise<void> {
-    // Find doctor
     const doctor = await this.doctorRepository.findById(id);
     if (!doctor) {
       throw new NotFoundError("Doctor not found");
     }
 
-    // Deactivate user account
     await this.userRepository.deactivate(doctor.userId);
   }
 
-  async searchUsers(params: SearchUserParams): Promise<any> {
-    const searchParams: any = {
-      page: params.page ? parseInt(params.page as any) : undefined,
-      limit: params.limit ? parseInt(params.limit as any) : undefined,
-      role: params.role as Role,
+  async searchUsers(params: SearchUserParams): Promise<PaginatedUsers> {
+    const searchParams: Partial<SearchUserParams> = {
+      page: params.page,
+      limit: params.limit,
+      role: params.role as Role | undefined,
       search: params.search,
       isActive: params.isActive,
       isVerified: params.isVerified,
@@ -215,7 +293,7 @@ export class AdminService {
     };
   }
 
-  async getUserById(id: string): Promise<any> {
+  async getUserById(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundError("User not found");
@@ -223,19 +301,19 @@ export class AdminService {
     return user;
   }
 
-  async updateUser(id: string, data: any): Promise<any> {
+  async updateUser(id: string, data: Partial<UpdateUserData>): Promise<User> {
     // Update user
     const user = await this.userRepository.update(id, data);
     return user;
   }
 
-  async deactivateUser(id: string): Promise<any> {
+  async deactivateUser(id: string): Promise<User> {
     // Deactivate user
     const user = await this.userRepository.deactivate(id);
     return user;
   }
 
-  async reactivateUser(id: string): Promise<any> {
+  async reactivateUser(id: string): Promise<User> {
     // Reactivate user
     const user = await this.userRepository.reactivate(id);
     return user;

@@ -1,4 +1,8 @@
+import dotenv from "dotenv";
 import { z } from "zod";
+import { Logger } from "../utils/logger.utils";
+
+dotenv.config();
 
 const envSchema = z.object({
    NODE_ENV: z
@@ -32,17 +36,15 @@ export const validateEnv = () => {
       return envSchema.parse(process.env);
    } catch (error) {
       if (error instanceof z.ZodError) {
-         console.error("Environment validation failed:");
+         Logger.error("Environment validation failed:");
          error.issues.forEach((issue) => {
             const path = issue.path.join(".");
-            console.error(`   ${path}: ${issue.message}`);
+            Logger.error(`   ${path}: ${issue.message}`);
          });
-         process.exit(1);
+         throw new Error("Environment validation failed. Check your .env file.");
       }
       throw error;
    }
 };
-
-export type EnvConfig = z.infer<typeof envSchema>;
 
 export const env = validateEnv();

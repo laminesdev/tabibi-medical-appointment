@@ -1,13 +1,15 @@
 import { Router } from "express";
 import { sanitizeInput } from "../middleware/auth.middleware";
+import { validateBody } from "../middleware/validation.middleware";
 import { AuthController } from "../controllers/auth.controller";
+import { registerSchema, loginSchema, refreshTokenSchema } from "../utils/validators/auth.validator";
 
 const router = Router();
 const authController = new AuthController();
 
-// Register route for all user types
 router.post(
   "/register",
+  validateBody(registerSchema),
   sanitizeInput({
     email: "email",
     password: "none",
@@ -27,9 +29,9 @@ router.post(
   authController.register
 );
 
-// Login route
 router.post(
   "/login",
+  validateBody(loginSchema),
   sanitizeInput({
     email: "email",
     password: "none",
@@ -37,9 +39,9 @@ router.post(
   authController.login
 );
 
-// Refresh token route
 router.post(
   "/refresh",
+  validateBody(refreshTokenSchema),
   authController.refreshToken
 );
 

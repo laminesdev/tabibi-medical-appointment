@@ -1,13 +1,24 @@
+import { Request } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { env } from "../config/env";
 import { ValidationUtils } from "./validation.utils";
+import { BadRequestError, UnauthorizedError } from "./errors/app.error";
+
+interface TokenPayload {
+   userId: string;
+}
+
+export const getUserId = (req: Request): string => {
+   if (!req.user) throw new UnauthorizedError("Not authenticated");
+   return req.user.id;
+};
 
 export class AuthUtils {
    static async hashPassword(password: string): Promise<string> {
       // Validate password strength before hashing
       if (!ValidationUtils.isValidPassword(password)) {
-         throw new Error(
+         throw new BadRequestError(
             "Password must be at least 8 characters with uppercase, lowercase, and number"
          );
       }
@@ -29,12 +40,12 @@ export class AuthUtils {
       return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
    }
 
-   static verifyAccessToken(token: string): any {
-      return jwt.verify(token, env.JWT_SECRET);
+   static verifyAccessToken(token: string): TokenPayload {
+      return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
    }
 
-   static verifyRefreshToken(token: string): any {
-      return jwt.verify(token, env.JWT_REFRESH_SECRET);
+   static verifyRefreshToken(token: string): TokenPayload {
+      return jwt.verify(token, env.JWT_REFRESH_SECRET) as TokenPayload;
    }
 
    // New method to extract token from header
@@ -43,41 +54,5 @@ export class AuthUtils {
          return null;
       }
       return authHeader.split(" ")[1];
-   }
-
-   // New method to validate password strength
-   static validatePasswordStrength(password: string): {
-      valid: boolean;
-      message?: string;
-   } {
-      if (password.length < 8) {
-         return {
-            valid: false,
-            message: "Password must be at least 8 characters",
-         };
-      }
-
-      if (!/[A-Z]/.test(password)) {
-         return {
-            valid: false,
-            message: "Password must contain at least one uppercase letter",
-         };
-      }
-
-      if (!/[a-z]/.test(password)) {
-         return {
-            valid: false,
-            message: "Password must contain at least one lowercase letter",
-         };
-      }
-
-      if (!/\d/.test(password)) {
-         return {
-            valid: false,
-            message: "Password must contain at least one number",
-         };
-      }
-
-      return { valid: true };
-   }
+}
 }

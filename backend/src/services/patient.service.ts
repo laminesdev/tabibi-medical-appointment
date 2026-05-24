@@ -5,7 +5,16 @@ import { PatientRepository } from "../repositories/patient.repository";
 import { AppointmentUtils } from "../utils/appointment.utils";
 import { ScheduleUtils } from "../utils/schedule.utils";
 import { BadRequestError, NotFoundError } from "../utils/errors/app.error";
-import { AppointmentStatus } from "@prisma/client";
+import { Appointment, AppointmentStatus, Patient } from "@prisma/client";
+
+export interface PaginatedAppointments {
+  appointments: Appointment[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
 
 export interface BookAppointmentData {
   doctorId: string;
@@ -15,9 +24,9 @@ export interface BookAppointmentData {
 }
 
 export interface PatientAppointmentQuery {
-  status?: string;
-  dateFrom?: string;
-  dateTo?: string;
+  status?: AppointmentStatus;
+  dateFrom?: Date;
+  dateTo?: Date;
   page?: number;
   limit?: number;
 }
@@ -40,13 +49,21 @@ export class PatientService {
     this.patientRepository = new PatientRepository();
   }
 
-  async bookAppointment(patientUserId: string, data: BookAppointmentData): Promise<any> {
+  async getProfile(patientUserId: string): Promise<Patient> {
+    const patient = await this.patientRepository.findByUserId(patientUserId);
+    if (!patient) {
+      throw new NotFoundError("Patient profile not found");
+    }
+    return patient;
+  }
+
+  async bookAppointment(patientUserId: string, data: BookAppointmentData): Promise<Appointment> {
     const { doctorId, date, timeSlot, reason } = data;
 
     // Get patient profile ID using the user ID
     const patientProfile = await this.patientRepository.findByUserId(patientUserId);
     if (!patientProfile) {
-      throw new BadRequestError("Patient profile not found");
+      throw new NotFoundError("Patient profile not found");
     }
 
     const patientId = patientProfile.id;
@@ -113,11 +130,11 @@ export class PatientService {
     return appointment;
   }
 
-  async getAppointments(patientUserId: string, params: PatientAppointmentQuery): Promise<any> {
+  async getAppointments(patientUserId: string, params: PatientAppointmentQuery): Promise<PaginatedAppointments> {
     // Get patient profile ID using the user ID
     const patientProfile = await this.patientRepository.findByUserId(patientUserId);
     if (!patientProfile) {
-      throw new BadRequestError("Patient profile not found");
+      throw new NotFoundError("Patient profile not found");
     }
 
     const patientId = patientProfile.id;
@@ -129,9 +146,9 @@ export class PatientService {
       limit
     } = params;
 
-    const queryParams: any = {
-      page: page ? parseInt(page as any) : undefined,
-      limit: limit ? parseInt(limit as any) : undefined,
+    const queryParams: Partial<PatientAppointmentQuery> = {
+      page,
+      limit,
     };
 
     if (status) {
@@ -166,11 +183,11 @@ export class PatientService {
     };
   }
 
-  async getAppointmentById(patientUserId: string, appointmentId: string): Promise<any> {
+  async getAppointmentById(patientUserId: string, appointmentId: string): Promise<Appointment> {
     // Get patient profile ID using the user ID
     const patientProfile = await this.patientRepository.findByUserId(patientUserId);
     if (!patientProfile) {
-      throw new BadRequestError("Patient profile not found");
+      throw new NotFoundError("Patient profile not found");
     }
 
     const patientId = patientProfile.id;
@@ -188,11 +205,11 @@ export class PatientService {
     return appointment;
   }
 
-  async cancelAppointment(patientUserId: string, appointmentId: string): Promise<any> {
+  async cancelAppointment(patientUserId: string, appointmentId: string): Promise<Appointment> {
     // Get patient profile ID using the user ID
     const patientProfile = await this.patientRepository.findByUserId(patientUserId);
     if (!patientProfile) {
-      throw new BadRequestError("Patient profile not found");
+      throw new NotFoundError("Patient profile not found");
     }
 
     const patientId = patientProfile.id;
@@ -221,13 +238,13 @@ export class PatientService {
     return updatedAppointment;
   }
 
-  async rescheduleAppointment(patientUserId: string, appointmentId: string, data: RescheduleAppointmentData): Promise<any> {
+  async rescheduleAppointment(patientUserId: string, appointmentId: string, data: RescheduleAppointmentData): Promise<Appointment> {
     const { date, timeSlot } = data;
 
     // Get patient profile ID using the user ID
     const patientProfile = await this.patientRepository.findByUserId(patientUserId);
     if (!patientProfile) {
-      throw new BadRequestError("Patient profile not found");
+      throw new NotFoundError("Patient profile not found");
     }
 
     const patientId = patientProfile.id;

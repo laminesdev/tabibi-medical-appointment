@@ -42,10 +42,10 @@ export class AdminRepository extends BaseRepository {
    }
 
    async isAdmin(userId: string): Promise<boolean> {
-      const count = await this.prisma.admin.count({
+      const admin = await this.prisma.admin.findUnique({
          where: { userId },
       });
-      return count > 0;
+      return admin !== null;
    }
 
    async findAll(params?: AdminQueryParams): Promise<Admin[]> {

@@ -13,10 +13,4 @@ export interface AvailableSlot {
    isBreak?: boolean;
 }
 
-export interface DoctorAvailability {
-   doctorId: string;
-   date: Date;
-   availableSlots: string[];
-   bookedSlots: string[];
-   schedule?: ScheduleDayConfig;
-}
+

@@ -1,45 +1,71 @@
 import { AppointmentRepository } from "../repositories/appointment.repository";
 import { DoctorRepository } from "../repositories/doctor.repository";
 import { ScheduleRepository } from "../repositories/schedule.repository";
+import { UserRepository } from "../repositories/user.repository";
 import { ScheduleUtils } from "../utils/schedule.utils";
 import { BadRequestError, NotFoundError } from "../utils/errors/app.error";
-import { AppointmentStatus } from "@prisma/client";
+import { Appointment, AppointmentStatus, Schedule, Doctor, Gender } from "@prisma/client";
 
 export interface DoctorAppointmentQuery {
-  status?: string;
-  dateFrom?: string;
-  dateTo?: string;
+  status?: AppointmentStatus;
+  dateFrom?: Date;
+  dateTo?: Date;
   page?: number;
   limit?: number;
 }
 
+export interface PaginatedAppointments {
+  appointments: Appointment[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
 export interface DoctorScheduleData {
-  [key: string]: any;
+  monday?: string;
+  tuesday?: string;
+  wednesday?: string;
+  thursday?: string;
+  friday?: string;
+  saturday?: string;
+  sunday?: string;
   timeSlotDuration?: string;
 }
 
 export interface DoctorProfileUpdateData {
-  [key: string]: any;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  gender?: Gender;
+  dateOfBirth?: Date;
   consultationFee?: string;
   experienceYears?: string;
+  bio?: string;
+  specialty?: string;
+  location?: string;
+  education?: string;
 }
 
 export class DoctorService {
   private appointmentRepository: AppointmentRepository;
   private doctorRepository: DoctorRepository;
   private scheduleRepository: ScheduleRepository;
+  private userRepository: UserRepository;
 
   constructor() {
     this.appointmentRepository = new AppointmentRepository();
     this.doctorRepository = new DoctorRepository();
     this.scheduleRepository = new ScheduleRepository();
+    this.userRepository = new UserRepository();
   }
 
-  async getAppointments(doctorUserId: string, params: DoctorAppointmentQuery): Promise<any> {
+  async getAppointments(doctorUserId: string, params: DoctorAppointmentQuery): Promise<PaginatedAppointments> {
     // Get doctor profile ID using the user ID
     const doctorProfile = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctorProfile) {
-      throw new BadRequestError("Doctor profile not found");
+      throw new NotFoundError("Doctor profile not found");
     }
 
     const doctorId = doctorProfile.id;
@@ -51,9 +77,9 @@ export class DoctorService {
       limit
     } = params;
 
-    const queryParams: any = {
-      page: page ? parseInt(page as any) : undefined,
-      limit: limit ? parseInt(limit as any) : undefined,
+    const queryParams: Partial<DoctorAppointmentQuery> = {
+      page,
+      limit,
     };
 
     if (status) {
@@ -88,11 +114,11 @@ export class DoctorService {
     };
   }
 
-  async getAppointmentById(doctorUserId: string, appointmentId: string): Promise<any> {
+  async getAppointmentById(doctorUserId: string, appointmentId: string): Promise<Appointment> {
     // Get doctor profile ID using the user ID
     const doctorProfile = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctorProfile) {
-      throw new BadRequestError("Doctor profile not found");
+      throw new NotFoundError("Doctor profile not found");
     }
 
     const doctorId = doctorProfile.id;
@@ -110,11 +136,11 @@ export class DoctorService {
     return appointment;
   }
 
-  async updateAppointmentStatus(doctorUserId: string, appointmentId: string, status: string): Promise<any> {
+  async updateAppointmentStatus(doctorUserId: string, appointmentId: string, status: string): Promise<Appointment> {
     // Get doctor profile ID using the user ID
     const doctorProfile = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctorProfile) {
-      throw new BadRequestError("Doctor profile not found");
+      throw new NotFoundError("Doctor profile not found");
     }
 
     const doctorId = doctorProfile.id;
@@ -147,7 +173,7 @@ export class DoctorService {
     return updatedAppointment;
   }
 
-  async getSchedule(doctorUserId: string): Promise<any> {
+  async getSchedule(doctorUserId: string): Promise<Schedule> {
     // Get doctor profile to get the doctorId (profile ID)
     const doctor = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctor) {
@@ -165,7 +191,7 @@ export class DoctorService {
     return schedule;
   }
 
-  async updateSchedule(doctorUserId: string, scheduleData: DoctorScheduleData): Promise<any> {
+  async updateSchedule(doctorUserId: string, scheduleData: DoctorScheduleData): Promise<Schedule> {
     // Get doctor profile to get the doctorId (profile ID)
     const doctor = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctor) {
@@ -177,18 +203,17 @@ export class DoctorService {
     // Validate schedule data
     const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
     for (const day of weekdays) {
-      if (scheduleData[day]) {
+      const dayScheduleValue = scheduleData[day as keyof DoctorScheduleData];
+      if (typeof dayScheduleValue === "string") {
         try {
-          // Try to parse the schedule data to validate JSON
-          JSON.parse(scheduleData[day]);
-
-          // Validate the parsed schedule
-          const daySchedule = ScheduleUtils.parseScheduleDay(scheduleData[day]);
-          if (!daySchedule) {
-            throw new BadRequestError(`Invalid schedule data for ${day}`);
-          }
-        } catch (error) {
+          JSON.parse(dayScheduleValue);
+        } catch {
           throw new BadRequestError(`Invalid JSON format for ${day} schedule`);
+        }
+
+        const daySchedule = ScheduleUtils.parseScheduleDay(dayScheduleValue);
+        if (!daySchedule) {
+          throw new BadRequestError(`Invalid schedule data for ${day}`);
         }
       }
     }
@@ -202,7 +227,7 @@ export class DoctorService {
     return schedule;
   }
 
-  async getProfile(doctorUserId: string): Promise<any> {
+  async getProfile(doctorUserId: string): Promise<Doctor> {
     const doctor = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctor) {
       throw new NotFoundError("Doctor profile not found");
@@ -211,16 +236,26 @@ export class DoctorService {
     return doctor;
   }
 
-  async updateProfile(doctorUserId: string, updateData: DoctorProfileUpdateData): Promise<any> {
-    // Get doctor profile
+  async updateProfile(doctorUserId: string, updateData: DoctorProfileUpdateData): Promise<Doctor> {
     const doctor = await this.doctorRepository.findByUserId(doctorUserId);
     if (!doctor) {
       throw new NotFoundError("Doctor profile not found");
     }
 
-    // Update doctor profile
+    const { firstName, lastName, phone, gender, dateOfBirth, ...doctorFields } = updateData;
+
+    if (firstName !== undefined || lastName !== undefined || phone !== undefined || gender !== undefined || dateOfBirth !== undefined) {
+      await this.userRepository.update(doctorUserId, {
+        firstName,
+        lastName,
+        phone,
+        gender,
+        dateOfBirth,
+      });
+    }
+
     const updatedDoctor = await this.doctorRepository.update(doctor.id, {
-      ...updateData,
+      ...doctorFields,
       consultationFee: updateData.consultationFee ? parseFloat(updateData.consultationFee) : undefined,
       experienceYears: updateData.experienceYears ? parseInt(updateData.experienceYears) : undefined,
     });

@@ -85,8 +85,3 @@ export class BaseRepository {
       };
    }
 }
-
-// Export a cleanup function for testing
-export const cleanupDatabase = async (): Promise<void> => {
-   await BaseRepository.disconnectAll();
-};

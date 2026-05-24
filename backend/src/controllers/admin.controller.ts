@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
-import { AdminService, CreateDoctorData, UpdateDoctorData, SearchDoctorParams, SearchUserParams } from "../services/admin.service";
+import { AdminService } from "../services/admin.service";
 import { catchAsync } from "../middleware/error.middleware";
+import { ResponseUtils } from "../utils/response.utils";
+import { CreateDoctorData, UpdateDoctorData } from "../services/admin.service";
+import { UpdateUserData } from "../repositories/user.repository";
 
 export class AdminController {
   private adminService: AdminService;
@@ -9,134 +12,93 @@ export class AdminController {
     this.adminService = new AdminService();
   }
 
-  getDashboard = catchAsync(async (_req: Request, res: Response) => {
-    const result = await this.adminService.getDashboardData();
-    
-    res.status(200).json({
-      status: "success",
-      message: "Dashboard data retrieved successfully",
-      data: result,
-    });
+  getDashboard = catchAsync(async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    const result = await this.adminService.getDashboardData(startDate, endDate);
+
+    ResponseUtils.success(res, result, "Dashboard data retrieved successfully");
   });
 
   getDoctors = catchAsync(async (req: Request, res: Response) => {
-    const params: SearchDoctorParams = req.query as any;
-    
+    const params = req.query;
+
     const result = await this.adminService.searchDoctors(params);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctors retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.paginated(res, result.doctors, result.pagination.total, result.pagination.page, result.pagination.limit);
   });
 
   getDoctorById = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     const result = await this.adminService.getDoctorById(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor retrieved successfully");
   });
 
   createDoctor = catchAsync(async (req: Request, res: Response) => {
     const createData: CreateDoctorData = req.body;
-    
+
     const result = await this.adminService.createDoctor(createData);
-    
-    res.status(201).json({
-      status: "success",
-      message: "Doctor created successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor created successfully", 201);
   });
 
   updateDoctor = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const updateData: UpdateDoctorData = req.body;
-    
+
     const result = await this.adminService.updateDoctor(id, updateData);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor updated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor updated successfully");
   });
 
   removeDoctor = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     await this.adminService.removeDoctor(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor removed successfully",
-    });
+
+    ResponseUtils.success(res, null, "Doctor deactivated successfully");
   });
 
   getUsers = catchAsync(async (req: Request, res: Response) => {
-    const params: SearchUserParams = req.query as any;
-    
+    const params = req.query;
+
     const result = await this.adminService.searchUsers(params);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Users retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.paginated(res, result.users, result.pagination.total, result.pagination.page, result.pagination.limit);
   });
 
   getUserById = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     const result = await this.adminService.getUserById(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "User retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "User retrieved successfully");
   });
 
   updateUser = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const updateData = req.body;
-    
+    const updateData: Partial<UpdateUserData> = req.body;
+
     const result = await this.adminService.updateUser(id, updateData);
-    
-    res.status(200).json({
-      status: "success",
-      message: "User updated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "User updated successfully");
   });
 
   deactivateUser = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     const result = await this.adminService.deactivateUser(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "User deactivated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "User deactivated successfully");
   });
 
   reactivateUser = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     const result = await this.adminService.reactivateUser(id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "User reactivated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "User reactivated successfully");
   });
 }

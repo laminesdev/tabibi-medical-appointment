@@ -1,23 +1,45 @@
 import { z } from "zod";
 
-export const timeRangeSchema = z.object({
-   start: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format (HH:mm)"),
-   end: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format (HH:mm)"),
-});
+const timeRegex = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
-export const dayScheduleSchema = z.object({
-   isAvailable: z.boolean().default(true),
-   timeSlots: z.array(timeRangeSchema).optional(),
-   breaks: z.array(timeRangeSchema).optional(),
-});
+const dayScheduleStringSchema = z.string().refine(
+   (val) => {
+      try {
+         const parsed = JSON.parse(val);
+         if (!parsed || typeof parsed !== "object") return false;
+          if (!parsed.isWorkingDay && parsed.startTime === undefined) {
+             return Object.keys(parsed).length === 0 || parsed.isWorkingDay === false;
+          }
+          const start = parsed.startTime;
+          const end = parsed.endTime;
+         if (typeof start !== "string" || typeof end !== "string") return false;
+         if (!timeRegex.test(start) || !timeRegex.test(end)) return false;
+         if (start >= end) return false;
+         if (parsed.breaks && Array.isArray(parsed.breaks)) {
+            for (const b of parsed.breaks) {
+               if (!b || typeof b !== "object") return false;
+               if (typeof b.start !== "string" || typeof b.end !== "string") return false;
+               if (!timeRegex.test(b.start) || !timeRegex.test(b.end)) return false;
+               if (b.start >= b.end) return false;
+            }
+         }
+         return true;
+      } catch {
+         return false;
+      }
+   },
+   { message: "Invalid JSON format for day schedule" }
+);
 
 export const updateScheduleSchema = z.object({
-   monday: dayScheduleSchema.optional(),
-   tuesday: dayScheduleSchema.optional(),
-   wednesday: dayScheduleSchema.optional(),
-   thursday: dayScheduleSchema.optional(),
-   friday: dayScheduleSchema.optional(),
-   saturday: dayScheduleSchema.optional(),
-   sunday: dayScheduleSchema.optional(),
-   timeSlotDuration: z.number().int().min(15).max(120).default(30),
+   monday: dayScheduleStringSchema.optional(),
+   tuesday: dayScheduleStringSchema.optional(),
+   wednesday: dayScheduleStringSchema.optional(),
+   thursday: dayScheduleStringSchema.optional(),
+   friday: dayScheduleStringSchema.optional(),
+   saturday: dayScheduleStringSchema.optional(),
+   sunday: dayScheduleStringSchema.optional(),
+   timeSlotDuration: z.coerce.number().int().min(15).max(120).default(30),
 });
+
+

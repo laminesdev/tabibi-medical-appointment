@@ -1,93 +1,159 @@
 # Tabibi Medical Appointment System - Backend API
 
-## Overview
-
-Tabibi is a web-based medical appointment management system designed to simplify and digitize the appointment scheduling process between doctors and patients. This backend API provides a secure and efficient way to handle doctor-patient interactions through a RESTful API.
-
-## Features
-
-- **User Authentication**: Secure JWT-based authentication with role-based access control
-- **Appointment Management**: Book, view, cancel, and reschedule appointments
-- **Doctor Management**: Search doctors by specialty/location, view profiles and schedules
-- **Schedule Management**: Doctors can set working hours and breaks
-- **Admin Dashboard**: System statistics and user/doctor management
-- **Security**: Input sanitization, rate limiting, and data validation
+A RESTful API for managing medical appointments between patients and doctors, with administrative oversight.
 
 ## Tech Stack
 
-- **Node.js** with **Express.js**
-- **PostgreSQL** with **Prisma ORM**
-- **JWT** for authentication
-- **Bcrypt** for password hashing
-- **TypeScript** for type safety
+- **Runtime**: Node.js + Express.js
+- **Language**: TypeScript
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: JWT (access + refresh tokens) + bcrypt
+- **Validation**: Zod v4
+- **Security**: Helmet, CORS, rate limiting, input sanitization
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- PostgreSQL database
-- npm or yarn
-
-### Installation
+## Quick Start
 
 ```bash
-# Navigate to backend directory
-cd backend
-
 # Install dependencies
 npm install
 
-# Set up environment variables (see .env.example)
+# Set up environment
 cp .env.example .env
+# Edit .env with your PostgreSQL connection string and JWT secrets
 
-# Generate Prisma client
+# Generate Prisma client and run migrations
 npm run prisma:generate
-
-# Run database migrations
 npm run prisma:migrate
 
 # Start development server
 npm run dev
 ```
 
-### Environment Variables
+## Available Scripts
 
-Create a `.env` file in the backend directory with the following variables:
+| Script | Description |
+|---|---|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Build TypeScript to JavaScript |
+| `npm start` | Start production server |
+| `npm run prisma:generate` | Generate Prisma client |
+| `npm run prisma:migrate` | Run database migrations |
+| `npm run prisma:studio` | Open Prisma Studio UI |
+| `npm run prisma:push` | Push schema to database |
 
-```env
-# Server Configuration
-PORT=5000
-NODE_ENV=development
+## Architecture
 
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
-
-# JWT Secrets (minimum 32 characters)
-JWT_SECRET="your-super-secret-jwt-key-here-min-32-chars"
-JWT_REFRESH_SECRET="your-super-secret-refresh-key-here-min-32-chars"
-
-# CORS
-CORS_ORIGIN="http://localhost:3000"
-
-# Optional (for production)
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your-email@example.com
-SMTP_PASS=your-email-password
-SMTP_FROM="Tabibi System <noreply@example.com>"
-REDIS_URL=redis://localhost:6379
-FRONTEND_URL="http://localhost:3000"
+```
+src/
+├── config/          # Environment validation, app configuration
+├── controllers/     # Request handlers, validation results
+├── middleware/       # Auth, validation, error handling, logging
+├── repositories/    # Data access layer (Prisma queries)
+├── routes/          # Express Router definitions
+├── services/        # Business logic layer
+├── types/           # TypeScript interfaces and types
+├── utils/           # Shared utilities (auth, validation, sanitization, scheduling)
+│   ├── errors/      # Custom error classes
+│   └── validators/  # Zod schemas
+├── app.ts           # Express app setup
+└── server.ts        # Entry point
 ```
 
-## API Endpoints
+## Authentication
 
-### Authentication
+All protected endpoints require a Bearer token in the `Authorization` header:
 
-#### Register User
-```http
-POST /api/auth/register
 ```
+Authorization: Bearer <access-token>
+```
+
+- **Access tokens** expire after 15 minutes
+- **Refresh tokens** expire after 7 days
+- Token refresh uses a dedicated endpoint (`POST /api/auth/refresh`)
+
+## Complete API Reference
+
+### Response Format
+
+**Success:**
+```json
+{
+  "status": "success",
+  "message": "...",
+  "data": { ... }
+}
+```
+
+**Paginated:**
+```json
+{
+  "status": "success",
+  "message": "...",
+  "data": [ ... ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "totalPages": 3,
+    "hasNext": true,
+    "hasPrevious": false
+  }
+}
+```
+
+**Error:**
+```json
+{
+  "status": "error",
+  "message": "...",
+  "errors": []  // Present on validation errors (422)
+}
+```
+
+### Endpoints Overview
+
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/health` | — | — | Health check with DB test |
+| `POST` | `/api/auth/register` | — | — | Register user (PATIENT or DOCTOR) |
+| `POST` | `/api/auth/login` | — | — | Login |
+| `POST` | `/api/auth/refresh` | — | — | Refresh access token |
+| `GET` | `/api/search/doctors` | — | — | Search doctors |
+| `GET` | `/api/search/doctors/featured` | — | — | Featured/top-rated doctors |
+| `GET` | `/api/search/doctors/:id` | — | — | Doctor public profile |
+| `GET` | `/api/search/doctors/:id/slots` | — | — | Available time slots |
+| `GET` | `/api/patients/profile` | ✓ | PATIENT | Patient's own profile |
+| `POST` | `/api/patients/appointments` | ✓ | PATIENT | Book appointment |
+| `GET` | `/api/patients/appointments` | ✓ | PATIENT | List appointments |
+| `GET` | `/api/patients/appointments/:id` | ✓ | PATIENT | Get appointment |
+| `PATCH` | `/api/patients/appointments/:id/cancel` | ✓ | PATIENT | Cancel appointment |
+| `PATCH` | `/api/patients/appointments/:id/reschedule` | ✓ | PATIENT | Reschedule appointment |
+| `GET` | `/api/doctors/appointments` | ✓ | DOCTOR | List doctor's appointments |
+| `GET` | `/api/doctors/appointments/:id` | ✓ | DOCTOR | Get appointment |
+| `PATCH` | `/api/doctors/appointments/:id/status` | ✓ | DOCTOR | Update status |
+| `GET` | `/api/doctors/schedule` | ✓ | DOCTOR | Get schedule |
+| `PUT` | `/api/doctors/schedule` | ✓ | DOCTOR | Update schedule |
+| `GET` | `/api/doctors/profile` | ✓ | DOCTOR | Get profile |
+| `PATCH` | `/api/doctors/profile` | ✓ | DOCTOR | Update profile |
+| `GET` | `/api/admin/dashboard` | ✓ | ADMIN | Dashboard statistics |
+| `GET` | `/api/admin/doctors` | ✓ | ADMIN | List/search doctors |
+| `GET` | `/api/admin/doctors/:id` | ✓ | ADMIN | Get doctor |
+| `POST` | `/api/admin/doctors` | ✓ | ADMIN | Create doctor |
+| `PATCH` | `/api/admin/doctors/:id` | ✓ | ADMIN | Update doctor |
+| `DELETE` | `/api/admin/doctors/:id` | ✓ | ADMIN | Deactivate doctor |
+| `GET` | `/api/admin/users` | ✓ | ADMIN | List/search users |
+| `GET` | `/api/admin/users/:id` | ✓ | ADMIN | Get user |
+| `PATCH` | `/api/admin/users/:id` | ✓ | ADMIN | Update user |
+| `PATCH` | `/api/admin/users/:id/deactivate` | ✓ | ADMIN | Deactivate user |
+| `PATCH` | `/api/admin/users/:id/reactivate` | ✓ | ADMIN | Reactivate user |
+
+---
+
+### 1. Authentication
+
+#### POST /api/auth/register
+
+Register a new user. ADMIN role is not allowed via public registration.
 
 **Request Body:**
 ```json
@@ -98,22 +164,30 @@ POST /api/auth/register
   "lastName": "Doe",
   "phone": "+1234567890",
   "gender": "MALE",
-  "role": "PATIENT" // or "DOCTOR" or "ADMIN"
-  
-  // For doctors only:
+  "role": "PATIENT",
+  "dateOfBirth": "1990-01-15",
   "specialty": "Cardiology",
-  "location": "New York"
+  "location": "New York",
+  "bio": "Experienced cardiologist",
+  "consultationFee": 150,
+  "experienceYears": 10,
+  "education": "Harvard Medical School"
 }
 ```
 
-**Response:**
+**Notes:**
+- Role options: `PATIENT`, `DOCTOR` (ADMIN rejected)
+- `specialty` and `location` required when `role = "DOCTOR"`
+- Password: minimum 8 characters, must contain uppercase, lowercase, and number
+
+**Response (201):**
 ```json
 {
   "status": "success",
   "message": "User registered successfully",
   "data": {
     "user": {
-      "id": "user-id",
+      "id": "clxx...",
       "email": "user@example.com",
       "firstName": "John",
       "lastName": "Doe",
@@ -123,17 +197,12 @@ POST /api/auth/register
       "isVerified": false,
       "isActive": true
     },
-    "profile": {
-      // Role-specific profile data
-    }
+    "profile": { "...": "..." }
   }
 }
 ```
 
-#### Login User
-```http
-POST /api/auth/login
-```
+#### POST /api/auth/login
 
 **Request Body:**
 ```json
@@ -149,35 +218,20 @@ POST /api/auth/login
   "status": "success",
   "message": "Login successful",
   "data": {
-    "user": {
-      "id": "user-id",
-      "email": "user@example.com",
-      "firstName": "John",
-      "lastName": "Doe",
-      "phone": "+1234567890",
-      "gender": "MALE",
-      "role": "PATIENT",
-      "isVerified": false,
-      "isActive": true
-    },
-    "profile": {
-      // Role-specific profile data
-    },
-    "accessToken": "jwt-access-token",
-    "refreshToken": "jwt-refresh-token"
+    "user": { "...": "..." },
+    "profile": { "...": "..." },
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
   }
 }
 ```
 
-#### Refresh Token
-```http
-POST /api/auth/refresh
-```
+#### POST /api/auth/refresh
 
 **Request Body:**
 ```json
 {
-  "refreshToken": "your-refresh-token"
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
@@ -187,156 +241,111 @@ POST /api/auth/refresh
   "status": "success",
   "message": "Token refreshed successfully",
   "data": {
-    "accessToken": "new-jwt-access-token"
+    "accessToken": "eyJhbGciOiJIUzI1NiIs..."
   }
 }
 ```
 
-### Public Search
+---
 
-#### Search Doctors
-```http
-GET /api/search/doctors?specialty=Cardiology&location=New York&page=1&limit=10
-```
+### 2. Public Search (No Auth Required)
 
-**Query Parameters:**
-- `specialty` (optional): Filter by specialty
-- `location` (optional): Filter by location
-- `search` (optional): General search term
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
+#### GET /api/search/doctors
+
+| Param | Type | Description |
+|---|---|---|
+| `specialty` | string | Filter by specialty (partial match) |
+| `location` | string | Filter by location (partial match) |
+| `search` | string | Search across name, specialty, location |
+| `minRating` | number | Minimum rating (0-5) |
+| `maxFee` | number | Maximum consultation fee |
+| `date` | string | Filter by availability date |
+| `page` | number | Page number (default: 1) |
+| `limit` | number | Items per page (default: 10, max: 100) |
+
+**Note:** At least one of `specialty`, `location`, or `search` is required.
+
+**Response:** Paginated list of doctors with `user` (firstName, lastName, email, phone), `schedule`, `rating`, `consultationFee`.
+
+#### GET /api/search/doctors/featured
+
+Returns top-rated doctors (rating >= 4.0, reviews >= 5). No parameters required.
+
+**Response:** Array of doctors with user data, sorted by rating descending (max 10).
+
+#### GET /api/search/doctors/:id
+
+Returns full doctor profile including `user`, `schedule`, `rating`, `education`, `bio`, `consultationFee`, `experienceYears`.
+
+#### GET /api/search/doctors/:id/slots?date=2025-12-30
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `date` | string | ✓ | Date in YYYY-MM-DD format |
+
+Returns available time slots for the given doctor and date. Computed from the doctor's schedule (working hours, breaks, time slot duration) minus already-booked slots.
 
 **Response:**
 ```json
 {
   "status": "success",
-  "message": "Doctors retrieved successfully",
+  "message": "Available slots retrieved successfully",
   "data": {
-    "doctors": [
-      {
-        "id": "doctor-id",
-        "userId": "user-id",
-        "specialty": "Cardiology",
-        "location": "New York",
-        "bio": "Experienced cardiologist",
-        "consultationFee": 150.00,
-        "experienceYears": 10,
-        "rating": 4.8,
-        "totalReviews": 120,
-        "user": {
-          "firstName": "Dr. Jane",
-          "lastName": "Smith",
-          "email": "drsmith@example.com"
-        }
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 10,
-      "total": 25
-    }
+    "date": "2025-12-30",
+    "slots": [
+      { "time": "09:00", "endTime": "09:30", "isAvailable": true, "isBreak": false },
+      { "time": "09:30", "endTime": "10:00", "isAvailable": true, "isBreak": false },
+      { "time": "12:00", "endTime": "12:30", "isAvailable": false, "isBreak": true }
+    ]
   }
 }
 ```
 
-#### Get Doctor by ID
-```http
-GET /api/search/doctors/:id
-```
+---
 
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Doctor retrieved successfully",
-  "data": {
-    "id": "doctor-id",
-    "userId": "user-id",
-    "specialty": "Cardiology",
-    "location": "New York",
-    "bio": "Experienced cardiologist",
-    "consultationFee": 150.00,
-    "experienceYears": 10,
-    "rating": 4.8,
-    "totalReviews": 120,
-    "user": {
-      "firstName": "Dr. Jane",
-      "lastName": "Smith",
-      "email": "drsmith@example.com"
-    }
-  }
-}
-```
+### 3. Patient Endpoints (Requires PATIENT Role)
 
-### Patient Endpoints
+#### GET /api/patients/profile
 
-All patient endpoints require authentication with `PATIENT` role.
+Returns the authenticated patient's profile including user data (firstName, lastName, email, phone, gender, dateOfBirth).
 
-#### Book Appointment
-```http
-POST /api/patients/appointments
-Authorization: Bearer your-access-token
-```
+#### POST /api/patients/appointments
 
 **Request Body:**
 ```json
 {
-  "doctorId": "doctor-id",
+  "doctorId": "doctor-cuid",
   "date": "2025-12-30",
   "timeSlot": "10:00-10:30",
   "reason": "Regular checkup"
 }
 ```
 
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Appointment booked successfully",
-  "data": {
-    "id": "appointment-id",
-    "patientId": "patient-id",
-    "doctorId": "doctor-id",
-    "date": "2025-12-30T00:00:00.000Z",
-    "timeSlot": "10:00-10:30",
-    "status": "PENDING",
-    "reason": "Regular checkup",
-    "createdAt": "2025-12-24T10:00:00.000Z",
-    "updatedAt": "2025-12-24T10:00:00.000Z"
-  }
-}
-```
+Validates: doctor exists, date is valid, time slot is within working hours, not during break, not already booked.
 
-#### Get All Appointments
-```http
-GET /api/patients/appointments?status=PENDING&dateFrom=2025-12-01&dateTo=2025-12-31&page=1&limit=10
-Authorization: Bearer your-access-token
-```
+**Response (201):** Created appointment with `id`, `patientId`, `doctorId`, `date`, `timeSlot`, `status: "PENDING"`, `reason`.
 
-**Query Parameters:**
-- `status` (optional): Filter by status (PENDING, CONFIRMED, CANCELLED, etc.)
-- `dateFrom` (optional): Filter from date
-- `dateTo` (optional): Filter to date
-- `page` (optional): Page number
-- `limit` (optional): Items per page
+#### GET /api/patients/appointments
 
-#### Get Appointment by ID
-```http
-GET /api/patients/appointments/:id
-Authorization: Bearer your-access-token
-```
+| Param | Type | Description |
+|---|---|---|
+| `status` | string | Filter: PENDING, CONFIRMED, CANCELLED, COMPLETED, RESCHEDULED, REJECTED |
+| `dateFrom` | string | Filter from date |
+| `dateTo` | string | Filter to date |
+| `page` | number | Page number (default: 1) |
+| `limit` | number | Items per page (default: 10) |
 
-#### Cancel Appointment
-```http
-PATCH /api/patients/appointments/:id/cancel
-Authorization: Bearer your-access-token
-```
+**Response:** Paginated list of appointments with doctor and user data.
 
-#### Reschedule Appointment
-```http
-PATCH /api/patients/appointments/:id/reschedule
-Authorization: Bearer your-access-token
-```
+#### GET /api/patients/appointments/:id
+
+Returns single appointment with doctor and user data. Ownership check enforced.
+
+#### PATCH /api/patients/appointments/:id/cancel
+
+Cancels the appointment (status → CANCELLED). Ownership check + 24-hour window check enforced.
+
+#### PATCH /api/patients/appointments/:id/reschedule
 
 **Request Body:**
 ```json
@@ -346,445 +355,283 @@ Authorization: Bearer your-access-token
 }
 ```
 
-### Doctor Endpoints
+Reschedules to new date/time. Validates slot availability (excluding current slot). Status resets to PENDING. Ownership check + 24-hour window enforced.
 
-All doctor endpoints require authentication with `DOCTOR` role.
+---
 
-#### Get All Appointments
-```http
-GET /api/doctors/appointments?status=CONFIRMED&page=1&limit=10
-Authorization: Bearer your-access-token
-```
+### 4. Doctor Endpoints (Requires DOCTOR Role)
 
-#### Get Appointment by ID
-```http
-GET /api/doctors/appointments/:id
-Authorization: Bearer your-access-token
-```
+#### GET /api/doctors/appointments
 
-#### Update Appointment Status
-```http
-PATCH /api/doctors/appointments/:id/status
-Authorization: Bearer your-access-token
-```
+Same query params as patient appointments. Returns doctor's appointments with patient user data.
+
+#### GET /api/doctors/appointments/:id
+
+Single appointment with patient data. Ownership check enforced.
+
+#### PATCH /api/doctors/appointments/:id/status
 
 **Request Body:**
 ```json
 {
-  "status": "CONFIRMED" // or "COMPLETED", "REJECTED", etc.
+  "status": "CONFIRMED"
 }
 ```
 
-#### Get Schedule
-```http
-GET /api/doctors/schedule
-Authorization: Bearer your-access-token
+Valid status values: PENDING, CONFIRMED, CANCELLED, COMPLETED, REJECTED, RESCHEDULED.
+
+#### GET /api/doctors/schedule
+
+Returns the doctor's weekly schedule:
+```json
+{
+  "id": "schedule-id",
+  "doctorId": "doctor-id",
+  "monday": "{\"isWorkingDay\":true,\"startTime\":\"09:00\",\"endTime\":\"17:00\",\"breaks\":[]}",
+  "tuesday": "...",
+  "timeSlotDuration": 30
+}
 ```
 
-#### Update Schedule
-```http
-PUT /api/doctors/schedule
-Authorization: Bearer your-access-token
-```
+#### PUT /api/doctors/schedule
 
 **Request Body:**
 ```json
 {
   "monday": "{\"isWorkingDay\":true,\"startTime\":\"09:00\",\"endTime\":\"17:00\",\"breaks\":[{\"start\":\"12:00\",\"end\":\"13:00\"}]}",
+  "tuesday": "{\"isWorkingDay\":true,\"startTime\":\"09:00\",\"endTime\":\"17:00\"}",
   "timeSlotDuration": 30
 }
 ```
 
-#### Get Profile
-```http
-GET /api/doctors/profile
-Authorization: Bearer your-access-token
+Each day is a JSON string:
+```json
+{
+  "isWorkingDay": true,
+  "startTime": "09:00",
+  "endTime": "17:00",
+  "breaks": [{ "start": "12:00", "end": "13:00" }]
+}
 ```
 
-#### Update Profile
-```http
-PATCH /api/doctors/profile
-Authorization: Bearer your-access-token
+#### GET /api/doctors/profile
+
+Returns doctor profile with user data (firstName, lastName, email, phone, gender, dateOfBirth) and doctor data (specialty, location, bio, consultationFee, experienceYears, education, rating).
+
+#### PATCH /api/doctors/profile
+
+**Request Body:**
+```json
+{
+  "firstName": "Dr. Jane",
+  "lastName": "Smith",
+  "specialty": "Cardiology",
+  "consultationFee": 200
+}
 ```
 
-### Admin Endpoints
+Accepts both user fields (firstName, lastName, phone, gender, dateOfBirth) and doctor fields (specialty, location, bio, consultationFee, experienceYears, education).
 
-All admin endpoints require authentication with `ADMIN` role.
+---
 
-#### Get Dashboard Statistics
-```http
-GET /api/admin/dashboard
-Authorization: Bearer your-access-token
-```
+### 5. Admin Endpoints (Requires ADMIN Role)
 
-#### Get All Doctors
-```http
-GET /api/admin/doctors?specialty=Cardiology&location=New York&page=1&limit=10
-Authorization: Bearer your-access-token
-```
+#### GET /api/admin/dashboard
 
-#### Get Doctor by ID
-```http
-GET /api/admin/doctors/:id
-Authorization: Bearer your-access-token
-```
+| Param | Type | Description |
+|---|---|---|
+| `startDate` | string | Filter stats from date (YYYY-MM-DD) |
+| `endDate` | string | Filter stats to date (YYYY-MM-DD) |
 
-#### Add Doctor
-```http
-POST /api/admin/doctors
-Authorization: Bearer your-access-token
-```
-
-#### Update Doctor
-```http
-PATCH /api/admin/doctors/:id
-Authorization: Bearer your-access-token
-```
-
-#### Remove Doctor
-```http
-DELETE /api/admin/doctors/:id
-Authorization: Bearer your-access-token
-```
-
-#### Get All Users
-```http
-GET /api/admin/users?role=PATIENT&isActive=true&page=1&limit=10
-Authorization: Bearer your-access-token
-```
-
-#### Get User by ID
-```http
-GET /api/admin/users/:id
-Authorization: Bearer your-access-token
-```
-
-#### Update User
-```http
-PATCH /api/admin/users/:id
-Authorization: Bearer your-access-token
-```
-
-#### Deactivate User
-```http
-PATCH /api/admin/users/:id/deactivate
-Authorization: Bearer your-access-token
-```
-
-#### Reactivate User
-```http
-PATCH /api/admin/users/:id/reactivate
-Authorization: Bearer your-access-token
-```
-
-## Authentication for Frontend Developers
-
-### Setting Up Authentication
-
-1. **Login and Store Tokens:**
-```javascript
-// Example login function
-async function login(email, password) {
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "users": {
+      "total": 100,
+      "byRole": { "PATIENT": 60, "DOCTOR": 35, "ADMIN": 5 },
+      "activeCount": 95,
+      "verifiedCount": 80,
+      "recentSignups": 12
+    },
+    "doctors": {
+      "total": 35,
+      "topRated": [ "...doctor objects..." ]
+    },
+    "appointments": {
+      "total": 500,
+      "byStatus": {
+        "PENDING": 50,
+        "CONFIRMED": 100,
+        "CANCELLED": 30,
+        "COMPLETED": 300,
+        "RESCHEDULED": 10,
+        "REJECTED": 10
       },
-      body: JSON.stringify({ email, password }),
-    });
-    
-    const data = await response.json();
-    
-    if (data.status === 'success') {
-      // Store tokens in localStorage or secure storage
-      localStorage.setItem('accessToken', data.data.accessToken);
-      localStorage.setItem('refreshToken', data.data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
-      return data;
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-  }
-}
-```
-
-2. **Attach Token to Requests:**
-```javascript
-// Function to get access token
-function getAccessToken() {
-  return localStorage.getItem('accessToken');
-}
-
-// Function to make authenticated requests
-async function apiRequest(endpoint, options = {}) {
-  const token = getAccessToken();
-  
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
-  };
-  
-  const config = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers,
-    },
-  };
-  
-  return fetch(`/api${endpoint}`, config);
-}
-```
-
-3. **Handle Token Refresh:**
-```javascript
-// Function to refresh token
-async function refreshToken() {
-  const refreshToken = localStorage.getItem('refreshToken');
-  
-  if (!refreshToken) {
-    // Redirect to login
-    window.location.href = '/login';
-    return;
-  }
-  
-  try {
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken }),
-    });
-    
-    const data = await response.json();
-    
-    if (data.status === 'success') {
-      localStorage.setItem('accessToken', data.data.accessToken);
-      return data.data.accessToken;
-    } else {
-      // Redirect to login
-      window.location.href = '/login';
-    }
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    window.location.href = '/login';
-  }
-}
-```
-
-4. **Intercept 401 Errors and Refresh:**
-```javascript
-// Enhanced API request with token refresh
-async function apiRequest(endpoint, options = {}) {
-  const token = getAccessToken();
-  
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
-  };
-  
-  const config = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers,
-    },
-  };
-  
-  let response = await fetch(`/api${endpoint}`, config);
-  
-  // If unauthorized, try to refresh token
-  if (response.status === 401) {
-    const newToken = await refreshToken();
-    if (newToken) {
-      // Retry request with new token
-      config.headers.Authorization = `Bearer ${newToken}`;
-      response = await fetch(`/api${endpoint}`, config);
+      "todayCount": 15
     }
   }
-  
-  return response;
 }
 ```
+
+#### GET /api/admin/doctors
+
+| Param | Type | Description |
+|---|---|---|
+| `search` | string | Search across name, specialty, location |
+| `specialty` | string | Filter by specialty |
+| `location` | string | Filter by location |
+| `minRating` | number | Minimum rating |
+| `page` | number | Page number (default: 1) |
+| `limit` | number | Items per page (default: 10) |
+
+#### GET /api/admin/doctors/:id
+
+Returns doctor detail with user info.
+
+#### POST /api/admin/doctors
+
+Create a doctor account (user + doctor profile). Requires all user fields + specialty + location. Checks email/phone uniqueness.
+
+#### PATCH /api/admin/doctors/:id
+
+Update doctor profile fields (specialty, location, bio, consultationFee, experienceYears, education).
+
+#### DELETE /api/admin/doctors/:id
+
+Deactivates the doctor's user account (sets isActive = false). Records remain in database.
+
+#### GET /api/admin/users
+
+| Param | Type | Description |
+|---|---|---|
+| `search` | string | Search across name, email, phone |
+| `role` | string | Filter by role (PATIENT, DOCTOR, ADMIN) |
+| `isActive` | boolean | Filter by active status |
+| `isVerified` | boolean | Filter by verification status |
+| `page` | number | Page number (default: 1) |
+| `limit` | number | Items per page (default: 10) |
+
+#### GET /api/admin/users/:id
+
+Returns user detail.
+
+#### PATCH /api/admin/users/:id
+
+Update user fields (firstName, lastName, phone, gender, dateOfBirth).
+
+#### PATCH /api/admin/users/:id/deactivate
+
+Sets `isActive = false` on the user.
+
+#### PATCH /api/admin/users/:id/reactivate
+
+Sets `isActive = true` on the user.
+
+---
 
 ## Error Handling
 
-The API returns consistent error responses:
+| Status | Error Class | Description |
+|---|---|---|
+| 400 | `BadRequestError` | Invalid input, missing fields |
+| 401 | `UnauthorizedError` | Missing/invalid token, inactive account |
+| 403 | `ForbiddenError` | Insufficient role permissions |
+| 404 | `NotFoundError` | Resource not found |
+| 409 | `ConflictError` | Duplicate email/phone, slot already booked |
+| 422 | `ValidationError` | Schema validation failed (field-level errors) |
+| 500 | `InternalServerError` | Unexpected server error |
 
-**Validation Error:**
+Validation error response:
 ```json
 {
   "status": "error",
   "message": "Validation error",
   "errors": [
-    {
-      "message": "Email is required"
-    }
+    { "message": "Password must contain at least one uppercase letter" }
   ]
-}
-```
-
-**Authentication Error:**
-```json
-{
-  "status": "error",
-  "message": "Invalid credentials"
-}
-```
-
-**Authorization Error:**
-```json
-{
-  "status": "error",
-  "message": "You do not have permission to access this resource"
-}
-```
-
-**Database Error:**
-```json
-{
-  "status": "error",
-  "message": "A record with this value already exists"
 }
 ```
 
 ## Data Models
 
 ### User
-```prisma
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  password     String
-  firstName    String
-  lastName     String
-  phone        String
-  gender       Gender
-  dateOfBirth  DateTime?
-  role         Role       @default(PATIENT)
-  isVerified   Boolean    @default(false)
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-}
-```
-
-### Patient
-```prisma
-model Patient {
-  id            String     @id @default(cuid())
-  userId        String     @unique
-  medicalHistory String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-}
-```
+| Field | Type | Notes |
+|---|---|---|
+| id | String (CUID) | Primary key |
+| email | String | Unique |
+| password | String | bcrypt hashed |
+| firstName | String | |
+| lastName | String | |
+| phone | String | |
+| gender | Gender (MALE/FEMALE) | |
+| dateOfBirth | DateTime? | |
+| role | Role (PATIENT/DOCTOR/ADMIN) | Default: PATIENT |
+| isVerified | Boolean | Default: false |
+| isActive | Boolean | Default: true |
 
 ### Doctor
-```prisma
-model Doctor {
-  id              String     @id @default(cuid())
-  userId          String     @unique
-  specialty       String
-  location        String
-  bio             String?
-  consultationFee Float?
-  experienceYears Int?
-  education       String?
-  rating          Float?     @default(0)
-  totalReviews    Int?       @default(0)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-}
-```
+| Field | Type | Notes |
+|---|---|---|
+| id | String (CUID) | Primary key |
+| userId | String (FK → User) | Unique |
+| specialty | String | |
+| location | String | |
+| bio | String? | |
+| consultationFee | Float? | |
+| experienceYears | Int? | |
+| education | String? | |
+| rating | Float? | Default: 0 |
+| totalReviews | Int? | Default: 0 |
+
+### Patient
+| Field | Type | Notes |
+|---|---|---|
+| id | String (CUID) | Primary key |
+| userId | String (FK → User) | Unique |
+| medicalHistory | String? | |
 
 ### Appointment
-```prisma
-model Appointment {
-  id        String           @id @default(cuid())
-  patientId String
-  doctorId  String
-  date      DateTime
-  timeSlot  String           // e.g., "10:00-10:30"
-  status    AppointmentStatus @default(PENDING)
-  reason    String?
-  notes     String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-}
-```
+| Field | Type | Notes |
+|---|---|---|
+| id | String (CUID) | Primary key |
+| patientId | String (FK → Patient) | |
+| doctorId | String (FK → Doctor) | |
+| date | DateTime | |
+| timeSlot | String | Format: "HH:MM-HH:MM" |
+| status | AppointmentStatus | Default: PENDING |
+| reason | String? | |
+| notes | String? | |
+
+### Schedule
+| Field | Type | Notes |
+|---|---|---|
+| id | String (CUID) | Primary key |
+| doctorId | String (FK → Doctor) | Unique |
+| monday–sunday | String? | JSON config string |
+| timeSlotDuration | Int | Default: 30 (minutes) |
 
 ### Enums
-```prisma
-enum Role {
-  PATIENT
-  DOCTOR
-  ADMIN
-}
 
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  RESCHEDULED
-  REJECTED
-}
+**Role:** `PATIENT`, `DOCTOR`, `ADMIN`
 
-enum Gender {
-  MALE
-  FEMALE
-}
-```
+**AppointmentStatus:** `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`, `RESCHEDULED`, `REJECTED`
 
-## Development
+**Gender:** `MALE`, `FEMALE`
 
-### Running Tests
+## Environment Variables
 
-```bash
-# Run tests (if available)
-npm test
-```
-
-### Building for Production
-
-```bash
-# Build TypeScript to JavaScript
-npm run build
-
-# Start production server
-npm start
-```
-
-### Database Management
-
-```bash
-# Generate Prisma client
-npm run prisma:generate
-
-# Run migrations
-npm run prisma:migrate
-
-# Open Prisma Studio
-npm run prisma:studio
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a pull request
-
-## Contact
-
-For questions or support, please contact the development team.
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | ✓ | 5000 | Server port |
+| `NODE_ENV` | ✓ | development | Environment |
+| `DATABASE_URL` | ✓ | — | PostgreSQL connection string |
+| `JWT_SECRET` | ✓ | — | Access token secret (≥32 chars) |
+| `JWT_REFRESH_SECRET` | ✓ | — | Refresh token secret (≥32 chars) |
+| `CORS_ORIGIN` | ✓ | — | Comma-separated allowed origins |
+| `RATE_LIMIT_WINDOW_MS` | | 900000 | Rate limit window (15 min) |
+| `RATE_LIMIT_MAX` | | 100 | Max requests per window |
+| `SMTP_*` | | — | Email configuration (optional) |
+| `REDIS_URL` | | — | Redis connection (optional) |
+| `FRONTEND_URL` | | — | Frontend URL (optional) |

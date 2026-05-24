@@ -50,7 +50,7 @@ export const validateQuery = (schema: ZodSchema) => {
       try {
          const validatedData = await schema.parseAsync(req.query);
          // Use type assertion for Express query object
-         req.query = validatedData as Record<string, any>;
+         req.query = validatedData as Record<string, string>;
          next();
       } catch (error) {
          if (error instanceof ZodError) {

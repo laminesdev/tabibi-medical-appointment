@@ -55,7 +55,7 @@ export class UserRepository extends BaseRepository {
             phone: sanitizedData.phone.trim(),
             gender: data.gender,
             dateOfBirth: data.dateOfBirth,
-            role: data.role || "PATIENT",
+            role: data.role || Role.PATIENT,
             isVerified: false,
             isActive: true,
          },
@@ -75,21 +75,6 @@ export class UserRepository extends BaseRepository {
       });
    }
 
-   async findByIdWithRelations(id: string): Promise<any> {
-      return this.prisma.user.findUnique({
-         where: { id },
-         include: {
-            patient: true,
-            doctor: {
-               include: {
-                  schedule: true,
-               },
-            },
-            admin: true,
-         },
-      });
-   }
-
    async update(id: string, data: UpdateUserData): Promise<User> {
       // Define fields with proper typing
       const fields = {
@@ -101,7 +86,7 @@ export class UserRepository extends BaseRepository {
       // Sanitize input data
       const sanitizedData = SanitizationUtils.sanitizeObject(data, fields);
 
-      const updateData: any = {};
+      const updateData: Partial<Prisma.UserUpdateInput> = {};
 
       if (sanitizedData.firstName)
          updateData.firstName = sanitizedData.firstName.trim();
@@ -225,22 +210,32 @@ export class UserRepository extends BaseRepository {
       return count > 0;
    }
 
-   async getStats(): Promise<{
+   async getStats(dateRange?: { startDate?: Date; endDate?: Date }): Promise<{
       total: number;
       byRole: Record<Role, number>;
       activeCount: number;
       verifiedCount: number;
       recentSignups: number;
    }> {
+      const dateFilter = dateRange?.startDate || dateRange?.endDate
+         ? {
+              ...(dateRange.startDate && { gte: dateRange.startDate }),
+              ...(dateRange.endDate && { lte: dateRange.endDate }),
+           }
+         : undefined;
+
+      const dateWhere = dateFilter ? { createdAt: dateFilter } : undefined;
+
       const [total, byRoleResult, activeCount, verifiedCount] =
          await Promise.all([
-            this.prisma.user.count(),
+            this.prisma.user.count({ where: dateWhere }),
             this.prisma.user.groupBy({
                by: ["role"],
                _count: true,
+               where: dateWhere,
             }),
-            this.prisma.user.count({ where: { isActive: true } }),
-            this.prisma.user.count({ where: { isVerified: true } }),
+            this.prisma.user.count({ where: { ...dateWhere, isActive: true } }),
+            this.prisma.user.count({ where: { ...dateWhere, isVerified: true } }),
          ]);
 
       const byRole: Record<Role, number> = {

@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
-import { DoctorService, DoctorAppointmentQuery, DoctorScheduleData, DoctorProfileUpdateData } from "../services/doctor.service";
+import { DoctorService, DoctorScheduleData, DoctorProfileUpdateData } from "../services/doctor.service";
 import { catchAsync } from "../middleware/error.middleware";
+import { ResponseUtils } from "../utils/response.utils";
+import { getUserId } from "../utils/auth.utils";
 
 export class DoctorController {
   private doctorService: DoctorService;
@@ -10,92 +12,64 @@ export class DoctorController {
   }
 
   getAppointments = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
-    const params: DoctorAppointmentQuery = req.query as any;
-    
+    const doctorUserId = getUserId(req);
+    const params = req.query;
+
     const result = await this.doctorService.getAppointments(doctorUserId, params);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Appointments retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.paginated(res, result.appointments, result.pagination.total, result.pagination.page, result.pagination.limit);
   });
 
   getAppointmentById = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
+    const doctorUserId = getUserId(req);
     const { id } = req.params;
-    
+
     const result = await this.doctorService.getAppointmentById(doctorUserId, id);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Appointment retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Appointment retrieved successfully");
   });
 
   updateAppointmentStatus = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
+    const doctorUserId = getUserId(req);
     const { id } = req.params;
     const { status } = req.body;
-    
+
     const result = await this.doctorService.updateAppointmentStatus(doctorUserId, id, status);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Appointment status updated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Appointment status updated successfully");
   });
 
   getSchedule = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
-    
+    const doctorUserId = getUserId(req);
+
     const result = await this.doctorService.getSchedule(doctorUserId);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Schedule retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Schedule retrieved successfully");
   });
 
   updateSchedule = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
+    const doctorUserId = getUserId(req);
     const scheduleData: DoctorScheduleData = req.body;
-    
+
     const result = await this.doctorService.updateSchedule(doctorUserId, scheduleData);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Schedule updated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Schedule updated successfully");
   });
 
   getProfile = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
-    
+    const doctorUserId = getUserId(req);
+
     const result = await this.doctorService.getProfile(doctorUserId);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor profile retrieved successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor profile retrieved successfully");
   });
 
   updateProfile = catchAsync(async (req: Request, res: Response) => {
-    const doctorUserId = req.user?.id!;
+    const doctorUserId = getUserId(req);
     const updateData: DoctorProfileUpdateData = req.body;
-    
+
     const result = await this.doctorService.updateProfile(doctorUserId, updateData);
-    
-    res.status(200).json({
-      status: "success",
-      message: "Doctor profile updated successfully",
-      data: result,
-    });
+
+    ResponseUtils.success(res, result, "Doctor profile updated successfully");
   });
 }

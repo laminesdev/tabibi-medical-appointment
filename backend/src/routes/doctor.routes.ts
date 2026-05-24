@@ -1,33 +1,30 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateBody, validateQuery, validateParams } from "../middleware/validation.middleware";
 import { DoctorController } from "../controllers/doctor.controller";
 import { Role } from "@prisma/client";
+import { updateAppointmentStatusSchema } from "../utils/validators/appointment.validator";
+import { updateScheduleSchema } from "../utils/validators/schedule.validator";
+import { updateProfileSchema } from "../utils/validators/user.validator";
+import { idParamSchema, doctorAppointmentQuerySchema } from "../utils/validators/common.validator";
 
 const router = Router();
 const doctorController = new DoctorController();
 
-// All routes require authentication and doctor authorization
 router.use(authenticate, authorize(Role.DOCTOR));
 
-// Get all appointments for doctor
-router.get("/appointments", doctorController.getAppointments);
+router.get("/appointments", validateQuery(doctorAppointmentQuerySchema), doctorController.getAppointments);
 
-// Get appointment by ID
-router.get("/appointments/:id", doctorController.getAppointmentById);
+router.get("/appointments/:id", validateParams(idParamSchema), doctorController.getAppointmentById);
 
-// Update appointment status
-router.patch("/appointments/:id/status", doctorController.updateAppointmentStatus);
+router.patch("/appointments/:id/status", validateParams(idParamSchema), validateBody(updateAppointmentStatusSchema), doctorController.updateAppointmentStatus);
 
-// Get doctor's schedule
 router.get("/schedule", doctorController.getSchedule);
 
-// Update doctor's schedule
-router.put("/schedule", doctorController.updateSchedule);
+router.put("/schedule", validateBody(updateScheduleSchema), doctorController.updateSchedule);
 
-// Get doctor profile
 router.get("/profile", doctorController.getProfile);
 
-// Update doctor profile
-router.patch("/profile", doctorController.updateProfile);
+router.patch("/profile", validateBody(updateProfileSchema), doctorController.updateProfile);
 
 export default router;
