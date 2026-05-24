@@ -4,7 +4,7 @@ import { ScheduleRepository } from "../repositories/schedule.repository";
 import { PatientRepository } from "../repositories/patient.repository";
 import { AppointmentUtils } from "../utils/appointment.utils";
 import { ScheduleUtils } from "../utils/schedule.utils";
-import { BadRequestError, NotFoundError } from "../utils/errors/app.error";
+import { BadRequestError, NotFoundError, ConflictError } from "../utils/errors/app.error";
 import { Appointment, AppointmentStatus, Patient } from "@prisma/client";
 
 export interface PaginatedAppointments {
@@ -115,6 +115,9 @@ export class PatientService {
     );
 
     if (!validation.isValid) {
+      if (validation.message?.includes("already booked")) {
+        throw new ConflictError(validation.message || "Time slot is already booked");
+      }
       throw new BadRequestError(validation.message || "Invalid appointment time");
     }
 
@@ -306,6 +309,9 @@ export class PatientService {
     );
 
     if (!validation.isValid) {
+      if (validation.message?.includes("already booked")) {
+        throw new ConflictError(validation.message || "Time slot is already booked");
+      }
       throw new BadRequestError(validation.message || "Invalid appointment time");
     }
 

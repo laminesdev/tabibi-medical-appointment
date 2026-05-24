@@ -10,7 +10,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:push": "prisma db push"
+    "prisma:push": "prisma db push",
+    "seed": "npx ts-node prisma/seed.ts",
+    "test:api": "npx ts-node tests/api.test.ts"
   },
   "keywords": [
     "medical",
@@ -38,6 +40,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.3",
+    "axios": "^1.16.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

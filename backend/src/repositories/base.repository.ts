@@ -51,14 +51,16 @@ export class BaseRepository {
    }
 
    protected getPaginationParams(
-      page?: number,
-      limit?: number
+      page?: number | string,
+      limit?: number | string
    ): {
       skip: number;
       take: number;
    } {
-      const validPage = page && page > 0 ? page : 1;
-      const validLimit = limit && limit > 0 && limit <= 100 ? limit : 10;
+      const p = typeof page === "string" ? parseInt(page, 10) : page;
+      const l = typeof limit === "string" ? parseInt(limit, 10) : limit;
+      const validPage = p && p > 0 ? p : 1;
+      const validLimit = l && l > 0 && l <= 100 ? l : 10;
       return {
          skip: (validPage - 1) * validLimit,
          take: validLimit,

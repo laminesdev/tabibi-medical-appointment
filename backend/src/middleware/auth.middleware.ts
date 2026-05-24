@@ -1,4 +1,14 @@
 import { Request, Response, NextFunction } from "express";
+
+declare global {
+   namespace Express {
+      interface Request {
+         user?: import("../types/user.types").IUser;
+         token?: string;
+      }
+   }
+}
+
 import { AuthUtils } from "../utils/auth.utils";
 import { UnauthorizedError, ForbiddenError } from "../utils/errors/app.error";
 import { UserRepository } from "../repositories/user.repository";

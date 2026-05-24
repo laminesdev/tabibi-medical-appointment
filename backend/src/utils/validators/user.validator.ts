@@ -19,6 +19,12 @@ export const updateProfileSchema = z.object({
       .string()
       .transform((val) => new Date(val))
       .optional(),
+   specialty: z.string().min(2).optional(),
+   location: z.string().min(2).optional(),
+   bio: z.string().optional(),
+   consultationFee: z.string().optional(),
+   experienceYears: z.string().optional(),
+   education: z.string().optional(),
 });
 
 

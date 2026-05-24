@@ -49,8 +49,7 @@ export const validateQuery = (schema: ZodSchema) => {
    return async (req: Request, _res: Response, next: NextFunction) => {
       try {
          const validatedData = await schema.parseAsync(req.query);
-         // Use type assertion for Express query object
-         req.query = validatedData as Record<string, string>;
+         Object.assign(req.query, validatedData);
          next();
       } catch (error) {
          if (error instanceof ZodError) {
@@ -70,8 +69,7 @@ export const validateParams = (schema: ZodSchema) => {
    return async (req: Request, _res: Response, next: NextFunction) => {
       try {
          const validatedData = await schema.parseAsync(req.params);
-         // Use type assertion for Express params object
-         req.params = validatedData as Record<string, string>;
+         Object.assign(req.params, validatedData);
          next();
       } catch (error) {
          if (error instanceof ZodError) {

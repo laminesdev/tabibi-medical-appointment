@@ -29,6 +29,26 @@ npm run prisma:migrate
 npm run dev
 ```
 
+## Testing
+
+```bash
+# 1. Start the server
+npm run dev
+
+# 2. In another terminal, run E2E tests
+npm run test:api
+```
+
+The E2E test suite (`tests/api.test.ts`) runs 43 sequential tests across 8 sections (Auth, Doctor Setup, Public Search, Patient Appointments, Doctor Appointment Management, Doctor Profile, Patient Profile, Admin). Tests use unique data per run via timestamps and stop immediately on first failure. Admin tests require `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars (loaded from `.env` via dotenv).
+
+## Database Seed
+
+```bash
+npm run seed
+```
+
+Creates the admin user using credentials from `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. Skips if admin already exists.
+
 ## Available Scripts
 
 | Script | Description |
@@ -40,6 +60,8 @@ npm run dev
 | `npm run prisma:migrate` | Run database migrations |
 | `npm run prisma:studio` | Open Prisma Studio UI |
 | `npm run prisma:push` | Push schema to database |
+| `npm run seed` | Seed admin user from `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars |
+| `npm run test:api` | Run E2E test suite (requires running server) |
 
 ## Architecture
 
