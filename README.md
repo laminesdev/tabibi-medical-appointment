@@ -112,7 +112,3 @@ See `backend/README.md` for full API reference with request/response schemas.
 - **Background**: `#FFFFFF`
 - **Border radius**: `1.25rem` (xl rounded)
 - **Typography**: Inter / system-ui
-
-## License
-
-MIT
